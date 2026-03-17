@@ -129,16 +129,75 @@ export default function Home() {
   const handleFiles = (incomingFiles: FileList | null) => {
     if (!incomingFiles) return;
     const newFiles = Array.from(incomingFiles).map((file) => ({
+      file: file, // Store the actual file object
       name: file.name,
       size: (file.size / 1024).toFixed(1),
       progress: 0,
       status: "idle",
       type: activeCategory,
+      targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : 'PDF'
     }));
     setFiles((prev) => [...prev, ...newFiles]);
   };
 
-  const simulateConversion = (index: number) => {
+  const handleConversion = async (index: number) => {
+    const fileItem = files[index];
+    if (!fileItem || !fileItem.file) return;
+
+    // Only handle Images for now as per backend implementation
+    if (fileItem.type !== 'Images') {
+      // Fallback to simulation for other types if backend not ready
+      simulateSimulation(index);
+      return;
+    }
+
+    setFiles((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, status: "converting", progress: 30 } : f))
+    );
+
+    const formData = new FormData();
+    formData.append('image', fileItem.file);
+    formData.append('targetFormat', fileItem.targetFormat || 'PNG');
+
+    try {
+      const response = await fetch('/api/convert', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Conversion failed');
+
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, progress: 80 } : f))
+      );
+
+      const blob = await response.blob();
+      
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download" } : f))
+      );
+
+      // Trigger automatic download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const newName = fileItem.name.split('.')[0] + '.' + (fileItem.targetFormat?.toLowerCase() || 'png');
+      link.setAttribute('download', newName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Error during conversion:", error);
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, status: "idle", progress: 0 } : f))
+      );
+      alert("Conversion failed. Please try again.");
+    }
+  };
+
+  const simulateSimulation = (index: number) => {
     setFiles((prev) =>
       prev.map((f, i) => (i === index ? { ...f, status: "converting" } : f))
     );
@@ -149,20 +208,20 @@ export default function Home() {
       if (progress >= 100) {
         progress = 100;
         clearInterval(interval);
-      setFiles((prev) =>
-        prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: f.name.split('.')[0] + '.' + (f.targetFormat || f.name.split('.').pop()) } : f))
-      );
-    } else {
-      setFiles((prev) =>
-        prev.map((f, i) => (i === index ? { ...f, progress } : f))
-      );
-    }
-  }, 100);
-};
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: f.name.split('.')[0] + '.' + (f.targetFormat || f.name.split('.').pop()) } : f))
+        );
+      } else {
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, progress } : f))
+        );
+      }
+    }, 100);
+  };
 
-const handleFormatChange = (index: number, format: string) => {
-  setFiles(prev => prev.map((f, i) => i === index ? { ...f, targetFormat: format } : f));
-};
+  const handleFormatChange = (index: number, format: string) => {
+    setFiles(prev => prev.map((f, i) => i === index ? { ...f, targetFormat: format } : f));
+  };
 
   return (
     <div className="app-container">
@@ -302,7 +361,7 @@ const handleFormatChange = (index: number, format: string) => {
                         setFiles(prev => [...prev, newFile]);
                         setVideoUrl("");
                         const newIndex = files.length;
-                        setTimeout(() => simulateConversion(newIndex), 500);
+                        setTimeout(() => handleConversion(newIndex), 500);
                       }
                     }}
                     style={{
@@ -355,7 +414,7 @@ const handleFormatChange = (index: number, format: string) => {
                         <button
                           className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
                           style={{ padding: "0.4rem 1rem", fontSize: "0.75rem", borderRadius: '0.5rem' }}
-                          onClick={() => file.status === "idle" ? simulateConversion(files.indexOf(file)) : null}
+                          onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
                         >
                           {file.status === "idle" ? "Fetch" : file.status === "converting" ? "..." : "Save"}
                         </button>
@@ -478,9 +537,9 @@ const handleFormatChange = (index: number, format: string) => {
                           <button
                             className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
                             style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B' }}
-                            onClick={() => file.status === "idle" ? simulateConversion(files.indexOf(file)) : null}
+                            onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
                           >
-                            {file.status === "idle" ? "Convert" : file.status === "converting" ? "..." : "Save"}
+                            {file.status === "idle" ? "Convert" : file.status === "converting" ? "..." : "Saved"}
                           </button>
                         </div>
                       ))
