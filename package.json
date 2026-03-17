@@ -1,0 +1,17 @@
+{
+  "name": "c-and-d-file-converter",
+  "version": "1.0.0",
+  "description": "Premium All-in-One File Converter",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "file",
+    "converter",
+    "premium",
+    "ui"
+  ],
+  "author": "",
+  "license": "ISC"
+}
