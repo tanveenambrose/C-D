@@ -1,17 +1,26 @@
 {
-  "name": "c-and-d-file-converter",
-  "version": "1.0.0",
-  "description": "Premium All-in-One File Converter",
-  "main": "index.html",
+  "name": "c-and-d",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "npx serve ."
+    "dev": "node node_modules/next/dist/bin/next dev",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
+    "lint": "eslint"
   },
-  "keywords": [
-    "file",
-    "converter",
-    "premium",
-    "ui"
-  ],
-  "author": "",
-  "license": "ISC"
+
+  "dependencies": {
+    "next": "16.1.7",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.7",
+    "typescript": "^5"
+  }
 }
