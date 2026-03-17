@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useRef } from "react";
 import gsap from "gsap";
+import { removeBackground } from "@imgly/background-removal";
 
 export default function Home() {
   const [files, setFiles] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("Download");
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
+  const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
   const sidebarRef = useRef(null);
   const headerRef = useRef(null);
   const heroTextRef = useRef(null);
@@ -144,9 +146,54 @@ export default function Home() {
     const fileItem = files[index];
     if (!fileItem || !fileItem.file) return;
 
-    // Only handle Images for now as per backend implementation
+    // Handle background removal first if selected
+    if (fileItem.type === 'Images' && fileItem.removeBg) {
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, status: "converting", progress: 20 } : f))
+      );
+
+      try {
+        // Run AI background removal on the client for instant preview/privacy
+        const resultBlob = await removeBackground(fileItem.file, {
+          model: 'isnet_quint8',
+          progress: (label: string, p: number) => {
+             setFiles((prev) =>
+              prev.map((f, i) => (i === index ? { ...f, progress: 20 + (p * 70) } : f))
+            );
+          }
+        });
+
+        const resultUrl = URL.createObjectURL(resultBlob);
+        const originalUrl = URL.createObjectURL(fileItem.file);
+
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", resultBlob } : f))
+        );
+
+        // Show preview automatically
+        setPreviewData({
+          original: originalUrl,
+          result: resultUrl,
+          isOpen: true
+        });
+
+        // Trigger automatic download
+        const link = document.createElement('a');
+        link.href = resultUrl;
+        const newName = fileItem.name.split('.')[0] + '_no_bg.png';
+        link.setAttribute('download', newName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+
+        return;
+      } catch (error) {
+        console.error("AI Background removal failed:", error);
+      }
+    }
+
+    // Standard conversion logic
     if (fileItem.type !== 'Images') {
-      // Fallback to simulation for other types if backend not ready
       simulateSimulation(index);
       return;
     }
@@ -221,6 +268,10 @@ export default function Home() {
 
   const handleFormatChange = (index: number, format: string) => {
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, targetFormat: format } : f));
+  };
+
+  const toggleRemoveBg = (index: number) => {
+    setFiles(prev => prev.map((f, i) => i === index ? { ...f, removeBg: !f.removeBg } : f));
   };
 
   return (
@@ -521,14 +572,28 @@ export default function Home() {
                             <select 
                               value={file.targetFormat || categories.find(c => c.name === activeCategory)?.formats?.[0] || 'PDF'}
                               onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
-                              disabled={file.status !== 'idle'}
-                              style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9' }}
+                              disabled={file.status !== 'idle' || file.removeBg}
+                              style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: file.removeBg ? 0.5 : 1 }}
                             >
                               {categories.find(c => c.name === activeCategory)?.formats?.map(fmt => (
                                 <option key={fmt} value={fmt}>{fmt}</option>
                               ))}
                             </select>
                           </div>
+
+                          {activeCategory === 'Images' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={!!file.removeBg} 
+                                  onChange={() => toggleRemoveBg(files.indexOf(file))}
+                                  disabled={file.status !== 'idle'}
+                                />
+                                AI Remove BG
+                              </label>
+                            </div>
+                          )}
 
                           <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#F1F5F9", height: "4px", borderRadius: "2px", position: "relative", overflow: "hidden" }}>
                             <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: categories.find(c => c.name === activeCategory)?.gradient || "var(--gradient)", transition: "width 0.3s" }}></div>
@@ -539,7 +604,7 @@ export default function Home() {
                             style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B' }}
                             onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
                           >
-                            {file.status === "idle" ? "Convert" : file.status === "converting" ? "..." : "Saved"}
+                            {file.status === "idle" ? (file.removeBg ? "Process" : "Convert") : file.status === "converting" ? "..." : "Saved"}
                           </button>
                         </div>
                       ))
@@ -551,6 +616,55 @@ export default function Home() {
           )}
         </section>
       </main>
+
+      {/* Preview Modal */}
+      {previewData?.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '2rem', width: '100%', maxWidth: '1000px',
+            padding: '2.5rem', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+          }}>
+            <button 
+              onClick={() => setPreviewData(null)}
+              style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem' }}
+            >×</button>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>AI Preview</h2>
+              <p style={{ color: 'var(--text-muted)' }}>Comparing original image with AI-processed result</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Original Image</p>
+                <div style={{ background: '#f8fafc', borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={previewData.original} alt="Original" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Processed Result</p>
+                <div style={{ 
+                  background: 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uPBAp8B927cf8BuS88SXBjTHSAbgw4Y8IAZ6V9S8H98IBIAdAn7U9XAAAAAElFTkSuQmCC")', 
+                  borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <img src={previewData.result} alt="Result" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
+              <button 
+                className="btn-primary gradient-btn" 
+                onClick={() => setPreviewData(null)}
+                style={{ padding: '0.8rem 3rem', borderRadius: '1rem', fontWeight: 600 }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
