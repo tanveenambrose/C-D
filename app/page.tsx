@@ -153,9 +153,13 @@ export default function Home() {
       );
 
       try {
-        // Run AI background removal on the client for instant preview/privacy
+        // Run AI background removal on the client
         const resultBlob = await removeBackground(fileItem.file, {
           model: 'isnet_quint8',
+          output: {
+            format: 'image/png',
+            quality: 0.8
+          },
           progress: (label: string, p: number) => {
              setFiles((prev) =>
               prev.map((f, i) => (i === index ? { ...f, progress: 20 + (p * 70) } : f))
@@ -167,7 +171,7 @@ export default function Home() {
         const originalUrl = URL.createObjectURL(fileItem.file);
 
         setFiles((prev) =>
-          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", resultBlob } : f))
+          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: f.name.split('.')[0] + '_no_bg.png' } : f))
         );
 
         // Show preview automatically
@@ -179,12 +183,18 @@ export default function Home() {
 
         // Trigger automatic download
         const link = document.createElement('a');
+        link.style.display = 'none';
         link.href = resultUrl;
-        const newName = fileItem.name.split('.')[0] + '_no_bg.png';
-        link.setAttribute('download', newName);
+        const newFileName = fileItem.name.split('.')[0] + '_no_bg.png';
+        link.download = newFileName;
         document.body.appendChild(link);
         link.click();
-        link.parentNode?.removeChild(link);
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          // Don't revoke resultUrl immediately so the preview image can still see it
+        }, 100);
 
         return;
       } catch (error) {
