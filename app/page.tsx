@@ -10,6 +10,7 @@ export default function Home() {
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
   const headerRef = useRef(null);
   const heroTextRef = useRef(null);
@@ -90,13 +91,19 @@ export default function Home() {
   useEffect(() => {
     // GSAP Entry Animations
     const tl = gsap.timeline();
-    tl.from(sidebarRef.current, {
-      x: -100,
-      opacity: 0,
-      duration: 1,
-      ease: "power3.out",
-    })
-      .from(
+    
+    // Only animate if refs are present
+    if (sidebarRef.current) {
+      tl.from(sidebarRef.current, {
+        x: -100,
+        opacity: 0,
+        duration: 1,
+        ease: "power3.out",
+      });
+    }
+
+    if (headerRef.current) {
+      tl.from(
         headerRef.current,
         {
           y: -50,
@@ -105,8 +112,11 @@ export default function Home() {
           ease: "power3.out",
         },
         "-=0.7"
-      )
-      .from(
+      );
+    }
+
+    if (heroTextRef.current) {
+      tl.from(
         heroTextRef.current,
         {
           y: 30,
@@ -115,8 +125,11 @@ export default function Home() {
           ease: "power3.out",
         },
         "-=0.7"
-      )
-      .from(
+      );
+    }
+
+    if (converterWrapperRef.current) {
+      tl.from(
         converterWrapperRef.current,
         {
           scale: 0.95,
@@ -126,6 +139,7 @@ export default function Home() {
         },
         "-=0.7"
       );
+    }
   }, []);
 
   const handleFiles = (incomingFiles: FileList | null) => {
@@ -286,8 +300,14 @@ export default function Home() {
 
   return (
     <div className="app-container">
+      {/* Sidebar Backdrop */}
+      <div 
+        className={`sidebar-backdrop ${isSidebarOpen ? 'show' : ''}`} 
+        onClick={() => setIsSidebarOpen(false)}
+      ></div>
+
       {/* Sidebar */}
-      <aside className="sidebar" ref={sidebarRef}>
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
         <div className="logo-area" style={{ marginBottom: '2.5rem' }}>
           <img src="/logo/C_D_logo-removebg-preview.png" alt="C&D Logo" className="logo-img" style={{ filter: 'drop-shadow(0 4px 10px rgba(99, 102, 241, 0.2))' }} />
           <h1 style={{ marginLeft: '12px' }}>C&D Flow</h1>
@@ -301,6 +321,7 @@ export default function Home() {
               onClick={(e) => {
                 e.preventDefault();
                 setActiveCategory(cat.name);
+                setIsSidebarOpen(false);
               }}
             >
               <span className="icon">{cat.icon}</span> {cat.name}
@@ -318,7 +339,7 @@ export default function Home() {
       <main className="main-content">
         {/* Header */}
         <header className="header" ref={headerRef} style={{ padding: '0.5rem 1.5rem', minHeight: '60px' }}>
-          <div className="mobile-toggle">☰</div>
+          <div className="mobile-toggle" onClick={() => setIsSidebarOpen(true)}>☰</div>
           <div className="search-bar" style={{ maxWidth: '300px' }}>
             <input type="text" placeholder="Search..." style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} />
           </div>
@@ -488,7 +509,7 @@ export default function Home() {
           ) : (
             <>
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
-                <h2 className="hero-title" style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>
+                <h2 className="section-title">
                   <span style={{ color: activeCategory === 'Images' ? '#FF3366' : activeCategory === 'Video' ? '#3366FF' : 'var(--primary)', fontWeight: 800 }}>
                     {categories.find(c => c.name === activeCategory)?.titlePrefix}
                   </span>{" "}
@@ -629,33 +650,26 @@ export default function Home() {
 
       {/* Preview Modal */}
       {previewData?.isOpen && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
-        }}>
-          <div style={{
-            background: 'white', borderRadius: '2rem', width: '100%', maxWidth: '1000px',
-            padding: '2.5rem', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-          }}>
+        <div className="preview-modal-overlay">
+          <div className="preview-modal-card">
             <button 
               onClick={() => setPreviewData(null)}
-              style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem' }}
+              style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', zIndex: 10 }}
             >×</button>
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>AI Preview</h2>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="section-title" style={{ fontSize: '1.6rem' }}>AI Preview</h2>
               <p style={{ color: 'var(--text-muted)' }}>Comparing original image with AI-processed result</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <div className="preview-modal-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Original Image</p>
-                <div style={{ background: '#f8fafc', borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="preview-image-container" style={{ background: '#f8fafc', borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <img src={previewData.original} alt="Original" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Processed Result</p>
-                <div style={{ 
+                <div className="preview-image-container" style={{ 
                   background: 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uPBAp8B927cf8BuS88SXBjTHSAbgw4Y8IAZ6V9S8H98IBIAdAn7U9XAAAAAElFTkSuQmCC")', 
                   borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
