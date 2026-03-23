@@ -387,63 +387,25 @@ export default function Home() {
   };
 
   /**
-   * Client-side download: the browser fetches the video URL directly using the user's
-   * own IP address. This bypasses cloud server (Vercel) IP blocks imposed by YouTube's CDN.
+   * Download via anchor navigation — bypasses CORS entirely.
+   * Since the browser called RapidAPI directly (user's IP),
+   * the CDN URL is IP-locked to the user's browser IP.
+   * Navigation requests (anchor clicks) are NOT subject to CORS,
+   * so the video will download directly from the CDN.
    */
-  const handleVideoDownload = async (mediaUrl: string, filename: string, idx: number) => {
-    setDlProgress(prev => ({ ...prev, [idx]: 0 }));
-    try {
-      const response = await fetch(mediaUrl, {
-        headers: {
-          'Accept': '*/*',
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded ${response.status}`);
-      }
-
-      // Stream with progress tracking
-      const contentLength = Number(response.headers.get('content-length') || 0);
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
-
-      const chunks: Uint8Array<ArrayBuffer>[] = [];
-      let received = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          chunks.push(value);
-          received += value.length;
-          if (contentLength > 0) {
-            setDlProgress(prev => ({ ...prev, [idx]: Math.round((received / contentLength) * 100) }));
-          } else {
-            // Pulse animation when content-length is unknown
-            setDlProgress(prev => ({ ...prev, [idx]: Math.min((prev[idx] || 0) + 5, 90) }));
-          }
-        }
-      }
-
-      // Combine chunks and trigger save
-      const blob = new Blob(chunks);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-      setDlProgress(prev => ({ ...prev, [idx]: 100 }));
-      setTimeout(() => setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; }), 2000);
-
-    } catch (err: any) {
-      console.error('[ClientDownload] Failed:', err);
-      // Fallback: open in new tab so user can right-click save
-      window.open(mediaUrl, '_blank', 'noopener,noreferrer');
-      setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; });
-    }
+  const handleVideoDownload = (mediaUrl: string, filename: string, idx: number) => {
+    setDlProgress(prev => ({ ...prev, [idx]: 50 }));
+    const a = document.createElement('a');
+    a.href = mediaUrl;
+    a.download = filename;
+    a.target = '_blank'; // fallback if browser blocks download
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Show brief success state
+    setDlProgress(prev => ({ ...prev, [idx]: 100 }));
+    setTimeout(() => setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; }), 2500);
   };
 
   const handleFormatChange = (index: number, format: string) => {
