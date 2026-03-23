@@ -26,66 +26,79 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Forward the Range header from the browser if present (crucial for large file downloads)
     const rangeHeader = request.headers.get('range');
     const fetchHeaders: HeadersInit = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': '*/*',
-      'Referer': 'https://www.tiktok.com/',
     };
 
     if (rangeHeader) {
       fetchHeaders['Range'] = rangeHeader;
     }
 
-    const response = await fetch(videoUrl, { headers: fetchHeaders });
+    // Use a longer timeout for the initial request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for connection
+
+    const response = await fetch(videoUrl, { 
+      headers: fetchHeaders,
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok && response.status !== 206) {
-      return new Response(JSON.stringify({ error: `Upstream error: ${response.status}` }), { status: 502 });
+      console.error(`[Proxy] Upstream error: ${response.status} for ${videoUrl}`);
+      return new Response(JSON.stringify({ error: `Upstream error: ${response.status}. Please try another quality.` }), { status: 502 });
     }
 
-    // Always use the MIME type we know is correct for this extension
     const mimeType = MIME_MAP[ext] || `video/${ext}`;
 
-    // Sanitize the filename — keep only safe characters
+    // Sanitize the filename
     const safeBase = filename
       .replace(/[^\w\s\-]/g, '')
       .trim()
       .replace(/\s+/g, '_')
-      .substring(0, 60) || 'video';
+      .substring(0, 80) || 'video';
 
     const downloadName = `${safeBase}.${ext}`;
     const encodedName = encodeURIComponent(downloadName);
 
     const headers = new Headers();
-    // Force download with the correct filename and extension
-    // Keep the header simple to avoid browser parser bugs that strip extensions
-    headers.set('Content-Disposition', `attachment; filename="${downloadName}"`);
+    // Modern Content-Disposition with UTF-8 support
+    headers.set('Content-Disposition', `attachment; filename="${downloadName}"; filename*=UTF-8''${encodedName}`);
     headers.set('Content-Type', mimeType);
-    headers.set('Cache-Control', 'no-store');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('Cache-Control', 'private, no-transform, max-age=0');
     
-    // Forward size and range headers to support resumable downloads and progress bars
-    if (response.headers.has('content-length')) {
-      headers.set('Content-Length', response.headers.get('content-length')!);
-    }
-    if (response.headers.has('content-range')) {
-      headers.set('Content-Range', response.headers.get('content-range')!);
-    }
-    if (response.headers.has('accept-ranges')) {
-      headers.set('Accept-Ranges', response.headers.get('accept-ranges')!);
-    } else {
-      headers.set('Accept-Ranges', 'bytes');
-    }
+    // Forward essential headers
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) headers.set('Content-Length', contentLength);
+    
+    const contentRange = response.headers.get('content-range');
+    if (contentRange) headers.set('Content-Range', contentRange);
+    
+    const acceptRanges = response.headers.get('accept-ranges');
+    if (acceptRanges) headers.set('Accept-Ranges', acceptRanges);
+    else headers.set('Accept-Ranges', 'bytes');
 
-    // Stream the body directly back
-    // using the exact status code from the CDN (200 or 206 for ranges)
+    // Return the response directly as a stream
     return new Response(response.body, { 
       status: response.status, 
       headers 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Proxy Download] Error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to proxy video download.' }), { status: 500 });
+    const isTimeout = error.name === 'AbortError';
+    return new Response(
+      JSON.stringify({ 
+        error: isTimeout ? 'Connection timed out' : 'Failed to proxy video download.',
+        details: error.message 
+      }), 
+      { status: isTimeout ? 504 : 500 }
+    );
   }
 }
+
