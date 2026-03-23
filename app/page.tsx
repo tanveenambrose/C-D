@@ -16,6 +16,8 @@ export default function Home() {
   const [dlLoading, setDlLoading] = useState(false);
   const [dlError, setDlError] = useState("");
   const [dlResult, setDlResult] = useState<any>(null);
+  // Per-button download loading state: maps media index to progress 0-100 or -1 for error
+  const [dlProgress, setDlProgress] = useState<Record<number, number>>({});
 
   const sidebarRef = useRef(null);
   const headerRef = useRef(null);
@@ -369,22 +371,64 @@ export default function Home() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // Build a URL that routes the download through our server-side proxy
-  // This bypasses CORS restrictions on CDN video URLs
-  const buildProxyUrl = (directUrl: string, quality: string, ext: string, title: string): string => {
-    const safeTitle = (title || 'video')
-      .replace(/[^a-z0-9\s]/gi, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .substring(0, 50);
-    const safeQuality = (quality || 'video').replace(/[^a-z0-9]/gi, '_');
-    const filename = `${safeTitle}_${safeQuality}`;
-    const params = new URLSearchParams({
-      url: directUrl,
-      filename,
-      ext: ext || 'mp4',
-    });
-    return `/api/proxy-download?${params.toString()}`;
+  /**
+   * Client-side download: the browser fetches the video URL directly using the user's
+   * own IP address. This bypasses cloud server (Vercel) IP blocks imposed by YouTube's CDN.
+   */
+  const handleVideoDownload = async (mediaUrl: string, filename: string, idx: number) => {
+    setDlProgress(prev => ({ ...prev, [idx]: 0 }));
+    try {
+      const response = await fetch(mediaUrl, {
+        headers: {
+          'Accept': '*/*',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded ${response.status}`);
+      }
+
+      // Stream with progress tracking
+      const contentLength = Number(response.headers.get('content-length') || 0);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const chunks: Uint8Array<ArrayBuffer>[] = [];
+      let received = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          received += value.length;
+          if (contentLength > 0) {
+            setDlProgress(prev => ({ ...prev, [idx]: Math.round((received / contentLength) * 100) }));
+          } else {
+            // Pulse animation when content-length is unknown
+            setDlProgress(prev => ({ ...prev, [idx]: Math.min((prev[idx] || 0) + 5, 90) }));
+          }
+        }
+      }
+
+      // Combine chunks and trigger save
+      const blob = new Blob(chunks);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      setDlProgress(prev => ({ ...prev, [idx]: 100 }));
+      setTimeout(() => setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; }), 2000);
+
+    } catch (err: any) {
+      console.error('[ClientDownload] Failed:', err);
+      // Fallback: open in new tab so user can right-click save
+      window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+      setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; });
+    }
   };
 
   const handleFormatChange = (index: number, format: string) => {
@@ -635,31 +679,48 @@ export default function Home() {
                           const safeQuality = (media.quality || (isAudio ? 'audio' : 'video')).replace(/[^a-z0-9]/gi, '_');
                           const downloadFilename = `${safeBase}_${safeQuality}.${ext}`;
 
-                          const proxyUrl = buildProxyUrl(
-                            media.url,
-                            media.quality || (isAudio ? 'audio' : 'video'),
-                            ext,
-                            dlResult.title || selectedPlatform
-                          );
+                          const isDownloading = dlProgress[idx] !== undefined && dlProgress[idx] < 100;
+                          const isDone = dlProgress[idx] === 100;
                           return (
                             <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <a
-                                href={proxyUrl}
-                                download={downloadFilename}
+                              <button
+                                onClick={() => !isDownloading && handleVideoDownload(media.url, downloadFilename, idx)}
+                                disabled={isDownloading}
                                 className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
-                                style={{ flex: 1 }}
+                                style={{
+                                  flex: 1,
+                                  cursor: isDownloading ? 'not-allowed' : 'pointer',
+                                  border: 'none',
+                                  textAlign: 'left',
+                                  position: 'relative',
+                                  overflow: 'hidden',
+                                  opacity: isDownloading ? 0.85 : 1
+                                }}
                               >
-                                <span className="dl-quality-label">{label}</span>
-                                <span className="dl-quality-meta">
-                                  {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
-                                  {size && <span>{size}</span>}
+                                {/* Progress bar fill */}
+                                {isDownloading && (
+                                  <div style={{
+                                    position: 'absolute', inset: 0, left: 0,
+                                    width: `${dlProgress[idx]}%`,
+                                    background: isAudio ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)',
+                                    transition: 'width 0.3s ease',
+                                    zIndex: 0
+                                  }} />
+                                )}
+                                <span className="dl-quality-label" style={{ position: 'relative', zIndex: 1 }}>
+                                  {isDone ? '✅ Saved!' : isDownloading ? `⬇️ ${dlProgress[idx]}%…` : label}
                                 </span>
-                              </a>
+                                <span className="dl-quality-meta" style={{ position: 'relative', zIndex: 1 }}>
+                                  {!isDownloading && extLabel && <span className="dl-quality-ext">{extLabel}</span>}
+                                  {!isDownloading && size && <span>{size}</span>}
+                                </span>
+                              </button>
+                              {/* Fallback: open direct URL in new tab */}
                               <a 
                                 href={media.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                title="Backup: Open direct link"
+                                title="Open direct link in new tab"
                                 style={{
                                   padding: '0.6rem 0.75rem',
                                   borderRadius: '0.65rem',
@@ -669,6 +730,7 @@ export default function Home() {
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   border: '1.5px solid rgba(0,0,0,0.05)',
+                                  flexShrink: 0,
                                   transition: 'all 0.2s ease'
                                 }}
                                 onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
@@ -685,17 +747,17 @@ export default function Home() {
                   
                   <div style={{ 
                     marginTop: '1.25rem', 
-                    padding: '1rem', 
-                    background: '#fefce8', 
-                    border: '1px solid #fef08a', 
+                    padding: '0.85rem 1rem', 
+                    background: '#f0fdf4', 
+                    border: '1px solid #bbf7d0', 
                     borderRadius: '1rem',
                     display: 'flex',
                     gap: '0.75rem',
                     alignItems: 'flex-start'
                   }}>
-                    <div style={{ fontSize: '1.2rem' }}>💡</div>
-                    <p style={{ fontSize: '0.75rem', color: '#854d0e', lineHeight: 1.5 }}>
-                      <strong>Pro Tip:</strong> If the main download button fails (common for YouTube on cloud servers), use the <strong>Direct Link (↗️)</strong> button. It opens the video directly in a new tab. Then, right-click the video and select <strong>&quot;Save Video As&quot;</strong> to save it to your device.
+                    <div style={{ fontSize: '1.1rem' }}>💡</div>
+                    <p style={{ fontSize: '0.73rem', color: '#166534', lineHeight: 1.5 }}>
+                      Downloads happen directly in your browser. If a button fails, click the <strong>↗️</strong> icon to open the video in a new tab, then right-click → <strong>&quot;Save Video As&quot;</strong>.
                     </p>
                   </div>
                 </div>
