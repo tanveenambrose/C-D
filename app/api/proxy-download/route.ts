@@ -1,4 +1,6 @@
-export const runtime = 'edge';
+// Node.js runtime (NOT Edge) — no body size limit, 60s timeout on Pro / 10s on Hobby
+// This is essential for proxying large video files through Vercel
+import { NextResponse } from 'next/server';
 
 const MIME_MAP: Record<string, string> = {
   mp4:  'video/mp4',
@@ -21,42 +23,38 @@ export async function GET(request: Request) {
   const ext = (searchParams.get('ext') || 'mp4').toLowerCase().replace(/^\./, '');
 
   if (!videoUrl) {
-    return new Response(JSON.stringify({ error: 'No URL provided' }), { status: 400 });
+    return NextResponse.json({ error: 'No URL provided' }, { status: 400 });
   }
 
   try {
     const rangeHeader = request.headers.get('range');
-    const userAgent = request.headers.get('user-agent') 
+    const userAgent = request.headers.get('user-agent')
       || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
     const fetchHeaders: Record<string, string> = {
       'User-Agent': userAgent,
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
-      // Don't set Referer/Origin to googlevideo — use youtube.com which the token expects
+      // Critical: YouTube CDN tokens expect Referer to be youtube.com
       'Referer': 'https://www.youtube.com/',
+      'Origin': 'https://www.youtube.com',
     };
 
     if (rangeHeader) {
       fetchHeaders['Range'] = rangeHeader;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
     const response = await fetch(videoUrl, {
       headers: fetchHeaders,
-      signal: controller.signal,
+      // @ts-ignore — Node.js fetch supports this
       cache: 'no-store',
-      redirect: 'follow'
+      redirect: 'follow',
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok && response.status !== 206) {
-      console.error(`[Proxy] Upstream ${response.status} for ${videoUrl.substring(0, 60)}`);
-      return new Response(
-        JSON.stringify({ error: `CDN returned ${response.status}`, url: videoUrl.substring(0, 80) }),
+      console.error(`[Proxy] Upstream ${response.status}: ${videoUrl.substring(0, 80)}`);
+      return NextResponse.json(
+        { error: `CDN returned ${response.status}. The video link may have expired. Please fetch again.` },
         { status: response.status }
       );
     }
@@ -76,25 +74,28 @@ export async function GET(request: Request) {
       'Content-Type': mimeType,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
-      // Allow the browser's own fetch to read this response (in case client-side approach is used)
-      'Access-Control-Allow-Origin': '*',
     });
 
     const contentLength = response.headers.get('content-length');
     if (contentLength) resHeaders.set('Content-Length', contentLength);
+
     const acceptRanges = response.headers.get('accept-ranges');
     if (acceptRanges) resHeaders.set('Accept-Ranges', acceptRanges);
+
     const contentRange = response.headers.get('content-range');
     if (contentRange) resHeaders.set('Content-Range', contentRange);
 
-    return new Response(response.body, { status: response.status, headers: resHeaders });
+    // Stream the response body directly — Node.js runtime handles this without body size limits
+    return new Response(response.body, {
+      status: response.status,
+      headers: resHeaders,
+    });
 
   } catch (error: any) {
-    const isTimeout = error.name === 'AbortError';
-    console.error('[Proxy] Error:', error.message);
-    return new Response(
-      JSON.stringify({ error: isTimeout ? 'Timed out' : error.message }),
-      { status: isTimeout ? 504 : 500 }
+    console.error('[Proxy Download] Error:', error.message);
+    return NextResponse.json(
+      { error: `Proxy failed: ${error.message}` },
+      { status: 500 }
     );
   }
 }
