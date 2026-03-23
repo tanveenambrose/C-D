@@ -14,11 +14,17 @@ const MIME_MAP: Record<string, string> = {
   aac:  'audio/aac',
 };
 
-export async function GET(request: Request) {
+export async function GET(request: Request, { params }: { params: Promise<{ filename: string }> }) {
   const { searchParams } = new URL(request.url);
   const videoUrl = searchParams.get('url');
-  const filename = searchParams.get('filename') || 'video';
-  const ext = (searchParams.get('ext') || 'mp4').toLowerCase().replace(/^\./, '');
+  
+  // Next.js 15+ async params
+  const { filename: encodedFilename } = await params;
+  const downloadName = decodeURIComponent(encodedFilename || 'video.mp4');
+  
+  // Extract extension from the filename (e.g., "video.mp4" -> "mp4")
+  const extMatch = downloadName.match(/\.([^.]+)$/);
+  const ext = (extMatch ? extMatch[1] : 'mp4').toLowerCase();
 
   if (!videoUrl) {
     return new Response(JSON.stringify({ error: 'No URL provided' }), { status: 400 });
@@ -33,7 +39,6 @@ export async function GET(request: Request) {
       'User-Agent': userAgent,
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
-      // Critical: YouTube CDN tokens expect Referer to be youtube.com
       'Referer': 'https://www.youtube.com/',
       'Origin': 'https://www.youtube.com',
     };
@@ -43,7 +48,6 @@ export async function GET(request: Request) {
     }
 
     const controller = new AbortController();
-    // Vercel Edge functions can stream indefinitely, but let's give the initial fetch a generous timeout to connect
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     const response = await fetch(videoUrl, {
@@ -58,23 +62,16 @@ export async function GET(request: Request) {
     if (!response.ok && response.status !== 206) {
       console.error(`[Proxy] Upstream ${response.status}: ${videoUrl.substring(0, 80)}`);
       return new Response(
-        JSON.stringify({ error: `CDN returned ${response.status}. The video link may have expired. Please fetch again.` }),
+        JSON.stringify({ error: `CDN returned ${response.status}. The video link may have expired.` }),
         { status: response.status }
       );
     }
 
     const mimeType = MIME_MAP[ext] || `video/${ext}`;
 
-    const safeBase = filename
-      .replace(/[^\x00-\x7F]/g, '')
-      .replace(/[^\w\d\-_]/g, '_')
-      .substring(0, 60) || 'video';
-
-    const downloadName = `${safeBase}.${ext}`;
-    const encodedName = encodeURIComponent(downloadName);
-
+    // Simplify Content-Disposition to reduce chance of browser/Vercel header stripping
     const resHeaders = new Headers({
-      'Content-Disposition': `attachment; filename="${downloadName}"; filename*=UTF-8''${encodedName}`,
+      'Content-Disposition': `attachment; filename="${downloadName}"`,
       'Content-Type': mimeType,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
@@ -90,7 +87,6 @@ export async function GET(request: Request) {
     const contentRange = response.headers.get('content-range');
     if (contentRange) resHeaders.set('Content-Range', contentRange);
 
-    // Stream the response body directly — Edge runtime has no timeout limit when streaming
     return new Response(response.body, {
       status: response.status,
       headers: resHeaders,

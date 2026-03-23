@@ -373,21 +373,20 @@ export default function Home() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // Build proxy URL that streams through the server, setting Content-Disposition for download
+  // Build proxy URL that streams through the server
   const buildProxyUrl = (directUrl: string, quality: string, ext: string, title: string): string => {
     const safeTitle = (title || 'video')
-      .replace(/[^a-z0-9\s]/gi, '')
+      .replace(/[^\w\d\-_]/g, '')
       .trim()
       .replace(/\s+/g, '_')
       .substring(0, 50);
     const safeQuality = (quality || 'video').replace(/[^a-z0-9]/gi, '_');
-    const filename = `${safeTitle}_${safeQuality}`;
+    const filename = `${safeTitle}_${safeQuality}.${ext || 'mp4'}`;
     const params = new URLSearchParams({
       url: directUrl,
-      filename,
-      ext: ext || 'mp4',
     });
-    return `/api/proxy-download?${params.toString()}`;
+    // Appending filename to the URL path ensures browsers save it with the correct extension
+    return `/api/proxy-download/${encodeURIComponent(filename)}?${params.toString()}`;
   };
 
   const handleFormatChange = (index: number, format: string) => {
