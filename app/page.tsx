@@ -3,10 +3,29 @@
 import { useEffect, useState, useRef } from "react";
 import gsap from "gsap";
 import { removeBackground } from "@imgly/background-removal";
+import { PDFDocument } from 'pdf-lib';
+import JSZip from 'jszip';
+
+// Document Tools List (ilovepdf style)
+const pdfTools = [
+  { id: 'merge', title: 'Merge PDF', desc: 'Combine PDFs in the order you want with the easiest PDF merger available.', color: '#E2574C', accept: '.pdf', uploadTitle: 'Select PDFs to merge', buttonText: 'Select PDFs', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg> },
+  { id: 'split', title: 'Split PDF', desc: 'Separate one page or a whole set for easy conversion into independent PDF files.', color: '#F18F2E', accept: '.pdf', uploadTitle: 'Select PDF to split', buttonText: 'Select PDF', formats: ['ZIP', 'PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg> },
+  { id: 'compress', title: 'Compress PDF', desc: 'Reduce file size while optimizing for maximal PDF quality.', color: '#4CAF50', accept: '.pdf', uploadTitle: 'Select PDF to compress', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg> },
+  { id: 'pdf-to-word', title: 'PDF to Word', desc: 'Easily convert your PDF files into easy to edit DOC and DOCX documents.', color: '#2B579A', accept: '.pdf', uploadTitle: 'Select PDF to Word', buttonText: 'Select PDF', formats: ['DOCX'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15v-6M15 15v-6M9 12h6"/></svg> },
+  { id: 'pdf-to-ppt', title: 'PDF to PowerPoint', desc: 'Turn your PDF files into easy to edit PPT and PPTX slideshows.', color: '#D24726', accept: '.pdf', uploadTitle: 'Select PDF to PowerPoint', buttonText: 'Select PDF', formats: ['PPTX'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+  { id: 'pdf-to-excel', title: 'PDF to Excel', desc: 'Pull data straight from PDFs into Excel spreadsheets in a few short seconds.', color: '#217346', accept: '.pdf', uploadTitle: 'Select PDF to Excel', buttonText: 'Select PDF', formats: ['XLSX'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="9" x2="15" y2="21"/></svg> },
+  { id: 'word-to-pdf', title: 'Word to PDF', desc: 'Make DOC and DOCX files easy to read by converting them to PDF.', color: '#E2574C', accept: '.doc,.docx', uploadTitle: 'Select Word files', buttonText: 'Select Word files', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg> },
+  { id: 'pdf-to-jpg', title: 'PDF to JPG', desc: 'Convert each PDF page into a JPG or extract all images contained in a PDF.', color: '#FFB800', accept: '.pdf', uploadTitle: 'Select PDF to JPG', buttonText: 'Select PDF', formats: ['JPG', 'PNG'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+  { id: 'jpg-to-pdf', title: 'JPG to PDF', desc: 'Convert JPG images to PDF in seconds. Easily adjust orientation and margins.', color: '#E2574C', accept: '.jpg,.jpeg,.png,.webp', uploadTitle: 'Select Images', buttonText: 'Select Images', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+  { id: 'edit', title: 'Edit PDF', desc: 'Add text, images, shapes or freehand annotations to a PDF document. Edit the size, font, and color.', color: '#9C27B0', accept: '.pdf', uploadTitle: 'Select PDF to edit', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> },
+  { id: 'watermark', title: 'Watermark', desc: 'Stamp an image or text over your PDF in seconds.', color: '#5C5C5C', accept: '.pdf', uploadTitle: 'Select PDF to watermark', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg> },
+  { id: 'protect', title: 'Protect PDF', desc: 'Encrypt PDF documents with a password to prevent unauthorized access.', color: '#00BCD4', accept: '.pdf', uploadTitle: 'Select PDF to encrypt', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
+];
 
 export default function Home() {
   const [files, setFiles] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("Download");
+  const [activeDocumentTool, setActiveDocumentTool] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
@@ -159,7 +178,8 @@ export default function Home() {
       progress: 0,
       status: "idle",
       type: activeCategory,
-      targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : 'PDF'
+      documentTool: activeCategory === 'Documents' ? activeDocumentTool : null,
+      targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : (activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.formats[0] : 'PDF') || 'PDF'
     }));
     setFiles((prev) => [...prev, ...newFiles]);
   };
@@ -224,7 +244,237 @@ export default function Home() {
       }
     }
 
-    // Standard conversion logic
+    // Document active tool logic (Client-Side)
+    if (fileItem.type === 'Documents' && activeDocumentTool) {
+      if (activeDocumentTool === 'split') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          const arrayBuffer = await fileItem.file.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const numberOfPages = pdfDoc.getPageCount();
+
+          if (numberOfPages <= 1) {
+            alert("This PDF only has 1 page, cannot split.");
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+            return;
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const zip = new JSZip();
+          const baseName = fileItem.name.replace(/\.[^/.]+$/, "");
+
+          // Extract each page into a separate PDF
+          for (let p = 0; p < numberOfPages; p++) {
+            const newPdf = await PDFDocument.create();
+            const [copiedPage] = await newPdf.copyPages(pdfDoc, [p]);
+            newPdf.addPage(copiedPage);
+            const pdfBytes = await newPdf.save();
+            zip.file(`${baseName}_page_${p + 1}.pdf`, pdfBytes);
+            
+            // visually update progress incrementally
+            if (p % 5 === 0) {
+               setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 + Math.floor((p / numberOfPages) * 30) } : f));
+            }
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 85 } : f));
+
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const zipUrl = URL.createObjectURL(zipBlob);
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          
+          const link = document.createElement('a');
+          link.href = zipUrl;
+          link.setAttribute('download', `${baseName}_split.zip`);
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(zipUrl); }, 5000);
+          
+          return;
+        } catch (err: any) {
+          console.error("PDF Split Error:", err);
+          alert("Failed to split PDF: " + (err.message || "Unknown error"));
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'watermark') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          const arrayBuffer = await fileItem.file.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const pages = pdfDoc.getPages();
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          // Simple text watermark
+          const { rgb, degrees } = await import('pdf-lib');
+          for (const page of pages) {
+            const { width, height } = page.getSize();
+            page.drawText('WATERMARKED', {
+              x: width / 2 - 180,
+              y: height / 2 - 50,
+              size: 60,
+              color: rgb(0.8, 0.2, 0.2),
+              opacity: 0.3,
+              rotate: degrees(45)
+            });
+          }
+          
+          const pdfBytes = await pdfDoc.save();
+          const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', fileItem.name.replace(/\.[^/.]+$/, "_watermarked.pdf"));
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+          return;
+        } catch (err: any) {
+          console.error("Watermark Error:", err);
+          alert("Failed to add Watermark: " + (err.message || "Unknown error"));
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'word-to-pdf') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          const arrayBuffer = await fileItem.file.arrayBuffer();
+          
+          // dynamic import to avoid SSR 'window not defined' errors
+          const mammoth = (await import('mammoth')).default || await import('mammoth');
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+          
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          const html = `<html><body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6;">${result.value}</body></html>`;
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 75 } : f));
+
+          const html2pdf = (await import('html2pdf.js')).default;
+          const element = document.createElement('div');
+          element.innerHTML = html;
+          
+          const opt = {
+            margin: 0.5,
+            filename: fileItem.name.replace(/\.docx?$/i, '.pdf'),
+            image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as 'portrait' }
+          };
+          
+          // html2pdf returns a promise that resolves when saving is complete
+          await html2pdf().set(opt).from(element).save();
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          return;
+        } catch (err: any) {
+          console.error("Word to PDF Error:", err);
+          alert('Failed to convert Word to PDF: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'excel-to-pdf') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          const arrayBuffer = await fileItem.file.arrayBuffer();
+          const XLSX = await import('xlsx');
+          
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const htmlOutput = XLSX.utils.sheet_to_html(worksheet);
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 60 } : f));
+
+          const html2pdf = (await import('html2pdf.js')).default;
+          const element = document.createElement('div');
+          element.innerHTML = `<div style="font-family: Arial, sans-serif; padding: 20px;"><h2>${firstSheetName}</h2>${htmlOutput}</div>`;
+          
+          const tables = element.getElementsByTagName('table');
+          for(let i=0; i<tables.length; i++) {
+            tables[i].style.borderCollapse = 'collapse';
+            tables[i].style.width = '100%';
+            tables[i].border = '1';
+            tables[i].cellPadding = '5';
+          }
+          
+          const opt = {
+            margin: 0.5,
+            filename: fileItem.name.replace(/\.xlsx?$/i, '.pdf'),
+            image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' as 'landscape' }
+          };
+          
+          await html2pdf().set(opt).from(element).save();
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          return;
+        } catch (err: any) {
+          console.error("Excel to PDF Error:", err);
+          alert('Failed to convert Excel to PDF: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'jpg-to-pdf') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          const arrayBuffer = await fileItem.file.arrayBuffer();
+          const pdfDoc = await PDFDocument.create();
+          
+          let image;
+          if (fileItem.file.type === 'image/jpeg' || fileItem.name.toLowerCase().endsWith('.jpg') || fileItem.name.toLowerCase().endsWith('.jpeg')) {
+             image = await pdfDoc.embedJpg(arrayBuffer);
+          } else {
+             image = await pdfDoc.embedPng(arrayBuffer);
+          }
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 60 } : f));
+
+          const page = pdfDoc.addPage([image.width, image.height]);
+          page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+          
+          const pdfBytes = await pdfDoc.save();
+          const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', fileItem.name.replace(/\.[^/.]+$/, ".pdf"));
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+          return;
+        } catch (err: any) {
+          console.error("JPG to PDF Error:", err);
+          alert('Failed to convert Image to PDF: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+      simulateSimulation(index);
+      return;
+    }
+
+    // Standard fallback logic
     if (fileItem.type !== 'Images') {
       simulateSimulation(index);
       return;
@@ -264,8 +514,10 @@ export default function Home() {
       link.setAttribute('download', newName);
       document.body.appendChild(link);
       link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 5000);
 
     } catch (error) {
       console.error("Error during conversion:", error);
@@ -277,6 +529,11 @@ export default function Home() {
   };
 
   const simulateSimulation = (index: number) => {
+    // Capture file info immediately (before any async state updates) to avoid stale closure inside setInterval
+    const fileItem = files[index];
+    const ext = fileItem?.targetFormat?.toLowerCase() || fileItem?.name?.split('.').pop()?.toLowerCase() || 'bin';
+    const newName = (fileItem?.name?.split('.')[0] || 'file') + '_simulated.' + ext;
+
     setFiles((prev) =>
       prev.map((f, i) => (i === index ? { ...f, status: "converting" } : f))
     );
@@ -287,15 +544,82 @@ export default function Home() {
       if (progress >= 100) {
         progress = 100;
         clearInterval(interval);
+        
         setFiles((prev) =>
-          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: f.name.split('.')[0] + '.' + (f.targetFormat || f.name.split('.').pop()) } : f))
+          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: newName } : f))
         );
+
+        let dummyContent = `This is a simulated ${ext.toUpperCase()} output file.\nDeep document parsing requires a backend API.`;
+        let mimeType = 'text/plain';
+
+        if (['doc', 'docx'].includes(ext)) {
+           dummyContent = `<html><body style="font-family: Arial, sans-serif; padding: 40px;"><h2>Simulated PDF to Word Conversion</h2><p>This is a simulated DOC output for <b>${fileItem?.name}</b>.</p></body></html>`;
+           mimeType = 'application/msword';
+        } else if (['xls', 'xlsx'].includes(ext)) {
+           dummyContent = `<html><body><table><tr><th>Simulated Excel Conversion</th></tr><tr><td>File: ${fileItem?.name}</td></tr></table></body></html>`;
+           mimeType = 'application/vnd.ms-excel';
+        }
+
+        const blob = new Blob([dummyContent], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', newName);
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
       } else {
         setFiles((prev) =>
           prev.map((f, i) => (i === index ? { ...f, progress } : f))
         );
       }
     }, 100);
+  };
+
+  const handleMergePdfs = async () => {
+    const docs = files.filter(f => f.type === 'Documents');
+    if (docs.length < 2) {
+      alert("Please select at least 2 PDFs to merge.");
+      return;
+    }
+
+    try {
+      setFiles(prev => prev.map(f => f.type === 'Documents' ? { ...f, status: "converting", progress: 20 } : f));
+      
+      const mergedPdf = await PDFDocument.create();
+      
+      for (let i = 0; i < docs.length; i++) {
+        const fileItem = docs[i];
+        const arrayBuffer = await fileItem.file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+        
+        setFiles(prev => prev.map(f => f.type === 'Documents' ? { ...f, progress: 20 + Math.floor(((i + 1) / docs.length) * 60) } : f));
+      }
+
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      setFiles(prev => prev.map(f => f.type === 'Documents' ? { ...f, progress: 100, status: 'download' } : f));
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `merged_document_${Date.now()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+
+    } catch (err: any) {
+      console.error("PDF Merge Error:", err);
+      alert("Failed to merge PDFs. Are you sure they are valid PDF files?");
+      setFiles(prev => prev.map(f => f.type === 'Documents' ? { ...f, status: "idle", progress: 0 } : f));
+    }
+  };
+
+  const handleDeleteFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // ──────────────────────────────────────────────
@@ -397,6 +721,15 @@ export default function Home() {
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, removeBg: !f.removeBg } : f));
   };
 
+  const activeToolData = activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool) : null;
+  const currentCategory = categories.find(c => c.name === activeCategory);
+  const displayTitle = activeToolData?.uploadTitle || currentCategory?.uploadTitle || `Upload ${activeCategory}`;
+  const displayDesc = activeToolData?.desc || currentCategory?.uploadDesc;
+  const displayAccept = activeToolData?.accept || currentCategory?.accept;
+  const displayButtonText = activeToolData?.buttonText || currentCategory?.buttonText || `Upload ${activeCategory}`;
+  const displayFormats = activeToolData?.formats || currentCategory?.formats || [];
+  const primaryBg = activeToolData ? activeToolData.color : (currentCategory?.gradient || 'var(--gradient)');
+
   return (
     <div className="app-container">
       {/* Sidebar Backdrop */}
@@ -420,6 +753,7 @@ export default function Home() {
               onClick={(e) => {
                 e.preventDefault();
                 setActiveCategory(cat.name);
+                setActiveDocumentTool(null);
                 setIsSidebarOpen(false);
               }}
             >
@@ -679,17 +1013,73 @@ export default function Home() {
               )}
 
             </div>
-          ) : (
+          ) : activeCategory === 'Documents' && !activeDocumentTool ? (
             <>
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
                 <h2 className="section-title">
-                  <span style={{ color: activeCategory === 'Images' ? '#FF3366' : activeCategory === 'Video' ? '#3366FF' : 'var(--primary)', fontWeight: 800 }}>
-                    {categories.find(c => c.name === activeCategory)?.titlePrefix}
-                  </span>{" "}
-                  <span style={{ fontWeight: 700 }}>{categories.find(c => c.name === activeCategory)?.titleSuffix || activeCategory}</span>
+                  <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Document</span>{" "}
+                  <span style={{ fontWeight: 700 }}>Studio</span>
                 </h2>
                 <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
-                  {categories.find(c => c.name === activeCategory)?.subtitle}
+                  Every tool you need to work with PDFs in one place
+                </p>
+              </div>
+
+              <div className="pdf-tools-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                maxWidth: '1100px',
+                margin: '0 auto',
+                paddingBottom: '2rem'
+              }}>
+                {pdfTools.map(tool => (
+                  <div key={tool.id} onClick={() => setActiveDocumentTool(tool.id)} style={{
+                    background: 'white',
+                    border: '1px solid rgba(0,0,0,0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = tool.color + '40'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.05)'; }}
+                  >
+                    <div style={{ color: tool.color, marginBottom: '0.25rem' }}>
+                      {tool.icon}
+                    </div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{tool.title}</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{tool.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              {activeDocumentTool && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <button onClick={() => setActiveDocumentTool(null)} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to all PDF tools
+                  </button>
+                </div>
+              )}
+              
+              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
+                <h2 className="section-title">
+                  <span style={{ color: activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.color : (activeCategory === 'Images' ? '#FF3366' : activeCategory === 'Video' ? '#3366FF' : 'var(--primary)'), fontWeight: 800 }}>
+                    {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.title.split(' ')[0] : categories.find(c => c.name === activeCategory)?.titlePrefix}
+                  </span>{" "}
+                  <span style={{ fontWeight: 700 }}>
+                    {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.title.split(' ').slice(1).join(' ') : (categories.find(c => c.name === activeCategory)?.titleSuffix || activeCategory)}
+                  </span>
+                </h2>
+                <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
+                  {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.desc : categories.find(c => c.name === activeCategory)?.subtitle}
                 </p>
               </div>
 
@@ -711,12 +1101,14 @@ export default function Home() {
                   <div className="drop-zone-content">
                     <div className="upload-icon" style={{ 
                       width: '80px', height: '80px', 
-                      background: categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)',
+                      background: primaryBg,
                       borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', margin: '0 auto 1.5rem',
-                      boxShadow: '0 15px 30px -5px rgba(99, 102, 241, 0.3)',
+                      boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.15)',
                       transition: 'transform 0.3s ease'
                     }}>
-                      {activeCategory === 'Images' ? (
+                      {activeToolData ? (
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                      ) : activeCategory === 'Images' ? (
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                       ) : activeCategory === 'Video' ? (
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-2 14.5v-9l6 4.5z"/></svg>
@@ -724,20 +1116,21 @@ export default function Home() {
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                       )}
                     </div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{categories.find(c => c.name === activeCategory)?.uploadTitle || `Upload ${activeCategory}`}</h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{categories.find(c => c.name === activeCategory)?.uploadDesc}</p>
-                    <input type="file" id="fileInput" hidden multiple ref={fileInputRef} accept={categories.find(c => c.name === activeCategory)?.accept} onChange={(e) => handleFiles(e.target.files)} />
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{displayTitle}</h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{displayDesc}</p>
+                    <input type="file" id="fileInput" hidden multiple ref={fileInputRef} accept={displayAccept} onChange={(e) => handleFiles(e.target.files)} />
                     
                     <button className="btn-primary" style={{ 
-                      background: categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)',
-                      padding: '1rem 2.5rem', fontSize: '1rem', fontWeight: 600, borderRadius: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 auto'
+                      background: primaryBg,
+                      padding: '1rem 2.5rem', fontSize: '1rem', fontWeight: 600, borderRadius: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 auto',
+                      border: 'none', color: 'white'
                     }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      {categories.find(c => c.name === activeCategory)?.buttonText || `Upload ${activeCategory}`}
+                      {displayButtonText}
                     </button>
 
                     <div className="format-tags" style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-                      {categories.find(c => c.name === activeCategory)?.formats?.map(f => (
+                      {displayFormats.map(f => (
                         <span key={f} style={{ padding: '0.3rem 0.75rem', background: '#F3F4F6', borderRadius: '1.5rem', fontSize: '0.7rem', fontWeight: 600, color: '#6B7280', border: '1px solid rgba(0,0,0,0.05)' }}>{f}</span>
                       ))}
                     </div>
@@ -750,10 +1143,10 @@ export default function Home() {
                     Filtered by: {activeCategory}
                   </h4>
                   <div className="file-list">
-                    {files.filter(f => f.type === activeCategory).length === 0 ? (
-                      <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No {activeCategory.toLowerCase()} uploaded yet</div>
+                    {files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length === 0 ? (
+                      <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No files uploaded yet</div>
                     ) : (
-                      files.filter(f => f.type === activeCategory).map((file, index) => (
+                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).map((file, index) => (
                         <div
                           key={index}
                           className="file-item"
@@ -772,14 +1165,14 @@ export default function Home() {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>Convert to:</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'Convert to:'}</span>
                             <select 
-                              value={file.targetFormat || categories.find(c => c.name === activeCategory)?.formats?.[0] || 'PDF'}
+                              value={file.targetFormat || displayFormats[0] || 'PDF'}
                               onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
-                              disabled={file.status !== 'idle' || file.removeBg}
-                              style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: file.removeBg ? 0.5 : 1 }}
+                              disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
+                              style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: (file.removeBg || displayFormats.length <= 1) ? 0.7 : 1, cursor: displayFormats.length <= 1 ? 'not-allowed' : 'pointer' }}
                             >
-                              {categories.find(c => c.name === activeCategory)?.formats?.map(fmt => (
+                              {displayFormats.map(fmt => (
                                 <option key={fmt} value={fmt}>{fmt}</option>
                               ))}
                             </select>
@@ -800,20 +1193,42 @@ export default function Home() {
                           )}
 
                           <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#F1F5F9", height: "4px", borderRadius: "2px", position: "relative", overflow: "hidden" }}>
-                            <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: categories.find(c => c.name === activeCategory)?.gradient || "var(--gradient)", transition: "width 0.3s" }}></div>
+                            <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
                           </div>
 
-                          <button
-                            className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
-                            style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B' }}
-                            onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
-                          >
-                            {file.status === "idle" ? (file.removeBg ? "Process" : "Convert") : file.status === "converting" ? "..." : "Saved"}
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {activeDocumentTool !== 'merge' && (
+                              <button
+                                className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
+                                style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? primaryBg : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B', border: 'none' }}
+                                onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
+                              >
+                                {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Saved"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteFile(files.indexOf(file))}
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                              title="Remove file"
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
                   </div>
+                  {activeDocumentTool === 'merge' && files.filter(f => f.type === activeCategory).length > 1 && (
+                    <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                      <button 
+                         className="btn-primary"
+                         style={{ background: primaryBg, padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)' }}
+                         onClick={handleMergePdfs}
+                      >
+                         Merge {files.filter(f => f.type === activeCategory).length} PDFs Now
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
