@@ -637,48 +637,21 @@ export default function Home() {
                           const safeQuality = (media.quality || (isAudio ? 'audio' : 'video')).replace(/[^a-z0-9]/gi, '_');
                           const downloadFilename = `${safeBase}_${safeQuality}.${ext}`;
 
-                          const proxyUrl = buildProxyUrl(
-                            media.url,
-                            media.quality || (isAudio ? 'audio' : 'video'),
-                            ext,
-                            dlResult.title || selectedPlatform
-                          );
                           return (
                             <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <a
-                                href={proxyUrl}
-                                download={downloadFilename}
+                                href={media.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
                                 style={{ flex: 1 }}
+                                title="Open video to download manually"
                               >
                                 <span className="dl-quality-label">{label}</span>
                                 <span className="dl-quality-meta">
                                   {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
                                   {size && <span>{size}</span>}
                                 </span>
-                              </a>
-                              {/* Fallback: open direct URL in new tab */}
-                              <a 
-                                href={media.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                title="Open direct link in new tab"
-                                style={{
-                                  padding: '0.6rem 0.75rem',
-                                  borderRadius: '0.65rem',
-                                  background: '#f1f5f9',
-                                  color: '#64748b',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  border: '1.5px solid rgba(0,0,0,0.05)',
-                                  flexShrink: 0,
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                                onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                               </a>
                             </div>
                           );
