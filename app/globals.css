@@ -575,3 +575,206 @@ body {
         font-size: 1.1rem;
     }
 }
+
+/* ─────────────────────────────────────────────
+   Download Section — New Components
+   ───────────────────────────────────────────── */
+
+/* Spinner animation for the fetch button */
+.dl-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: dl-spin 0.7s linear infinite;
+    margin-right: 4px;
+}
+
+@keyframes dl-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Error card */
+.dl-error-card {
+    background: #fff5f5;
+    border: 1.5px solid #fecaca;
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    color: #991b1b;
+    animation: dl-fadeIn 0.3s ease;
+}
+
+/* Result / preview card */
+.dl-result-card {
+    background: white;
+    border: 1.5px solid rgba(16, 185, 129, 0.2);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.06);
+    animation: dl-fadeIn 0.4s ease;
+}
+
+@keyframes dl-fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Preview body: thumbnail left, meta right */
+.dl-preview-body {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+/* Thumbnail wrapper */
+.dl-thumb-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 200px;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.dl-thumb {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+}
+
+.dl-duration-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.72);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+/* Meta text area */
+.dl-meta {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.dl-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--text-main);
+    margin-bottom: 0.3rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dl-author {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.dl-platform-badge {
+    display: inline-block;
+    color: white;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+/* Quality download buttons grid */
+.dl-download-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dl-quality-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.9rem;
+    border-radius: 0.65rem;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    border: 1.5px solid transparent;
+}
+
+.dl-quality-btn--video {
+    background: rgba(16, 185, 129, 0.08);
+    color: #065f46;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.dl-quality-btn--video:hover {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.dl-quality-btn--audio {
+    background: rgba(245, 158, 11, 0.08);
+    color: #78350f;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.dl-quality-btn--audio:hover {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.dl-quality-label {
+    flex: 1;
+}
+
+.dl-quality-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    opacity: 0.75;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.dl-quality-ext {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+/* Mobile adjustments for download section */
+@media (max-width: 640px) {
+    .dl-preview-body {
+        flex-direction: column;
+    }
+
+    .dl-thumb-wrap {
+        width: 100%;
+    }
+
+    .dl-thumb {
+        height: 200px;
+    }
+}

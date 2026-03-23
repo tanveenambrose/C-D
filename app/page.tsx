@@ -11,6 +11,12 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Download section state
+  const [dlLoading, setDlLoading] = useState(false);
+  const [dlError, setDlError] = useState("");
+  const [dlResult, setDlResult] = useState<any>(null);
+
   const sidebarRef = useRef(null);
   const headerRef = useRef(null);
   const heroTextRef = useRef(null);
@@ -290,6 +296,97 @@ export default function Home() {
     }, 100);
   };
 
+  // ──────────────────────────────────────────────
+  // Platform URL validation helpers
+  // ──────────────────────────────────────────────
+  const platformDomains: Record<string, string[]> = {
+    YouTube:   ["youtube.com", "youtu.be"],
+    Instagram: ["instagram.com"],
+    Facebook:  ["facebook.com", "fb.watch"],
+    TikTok:    ["tiktok.com"],
+  };
+
+  const isValidUrlForPlatform = (url: string, platform: string): boolean => {
+    try {
+      const hostname = new URL(url).hostname.replace("www.", "");
+      return (platformDomains[platform] || []).some((d) => hostname === d || hostname.endsWith("." + d));
+    } catch {
+      return false;
+    }
+  };
+
+  const fetchDownload = async () => {
+    setDlError("");
+    setDlResult(null);
+
+    if (!videoUrl.trim()) {
+      setDlError("Please paste a video URL first.");
+      return;
+    }
+
+    if (!isValidUrlForPlatform(videoUrl.trim(), selectedPlatform)) {
+      setDlError(
+        `Invalid URL for ${selectedPlatform}. Please paste a valid ${selectedPlatform} video link. ` +
+        `(Expected domains: ${(platformDomains[selectedPlatform] || []).join(", ")})`
+      );
+      return;
+    }
+
+    setDlLoading(true);
+    try {
+      const res = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: videoUrl.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.error || !data.medias || data.medias.length === 0) {
+        setDlError(
+          data.message ||
+          "Could not fetch this video. The link may be private, expired, or unsupported."
+        );
+      } else {
+        setDlResult(data);
+      }
+    } catch {
+      setDlError("Network error. Please check your connection and try again.");
+    } finally {
+      setDlLoading(false);
+    }
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (!bytes) return "";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const formatDuration = (ms: number): string => {
+    if (!ms) return "";
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  // Build a URL that routes the download through our server-side proxy
+  // This bypasses CORS restrictions on CDN video URLs
+  const buildProxyUrl = (directUrl: string, quality: string, ext: string, title: string): string => {
+    const safeTitle = (title || 'video')
+      .replace(/[^a-z0-9\s]/gi, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 50);
+    const safeQuality = (quality || 'video').replace(/[^a-z0-9]/gi, '_');
+    const filename = `${safeTitle}_${safeQuality}`;
+    const params = new URLSearchParams({
+      url: directUrl,
+      filename,
+      ext: ext || 'mp4',
+    });
+    return `/api/proxy-download?${params.toString()}`;
+  };
+
   const handleFormatChange = (index: number, format: string) => {
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, targetFormat: format } : f));
   };
@@ -355,36 +452,39 @@ export default function Home() {
         <section className="hero-section">
           {activeCategory === "Download" ? (
             <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }}>
+              {/* Section Header */}
               <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                   <div style={{ width: '36px', height: '36px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
-                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                   </div>
-                   <div>
+                  <div style={{ width: '36px', height: '36px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  </div>
+                  <div>
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Video Downloader</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Select platform and paste video URL</p>
-                   </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Select platform, paste URL, and download in any quality</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="downloader-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow)' }}>
-                <h4 style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem' }}>Supported Platforms:</h4>
+              {/* Platform + URL Input Card */}
+              <div className="downloader-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
+                <h4 style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem' }}>1. Select Platform:</h4>
                 <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   {platforms.map(p => (
-                    <div 
+                    <div
                       key={p.name}
-                      onClick={() => setSelectedPlatform(p.name)}
+                      onClick={() => { setSelectedPlatform(p.name); setDlError(""); setDlResult(null); }}
                       style={{
                         padding: '0.75rem',
                         borderRadius: '0.75rem',
-                        border: '1px solid',
-                        borderColor: selectedPlatform === p.name ? p.color + '40' : 'rgba(0,0,0,0.05)',
-                        background: selectedPlatform === p.name ? p.color + '08' : 'white',
+                        border: '2px solid',
+                        borderColor: selectedPlatform === p.name ? p.color : 'rgba(0,0,0,0.06)',
+                        background: selectedPlatform === p.name ? p.color + '0d' : 'white',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
-                        transition: 'all 0.3s ease'
+                        transition: 'all 0.25s ease',
+                        boxShadow: selectedPlatform === p.name ? `0 4px 16px ${p.color}22` : 'none'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -397,114 +497,174 @@ export default function Home() {
                         <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.name}</span>
                       </div>
                       {selectedPlatform === p.name && (
-                        <div style={{ width: '16px', height: '16px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px' }}>✓</div>
+                        <div style={{ width: '18px', height: '18px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 800 }}>✓</div>
                       )}
                     </div>
                   ))}
                 </div>
 
-                <div 
-                  className="url-input-wrapper" 
-                  style={{ 
-                    display: 'flex', 
+                <h4 style={{ marginBottom: '0.75rem', fontWeight: 600, fontSize: '0.9rem' }}>2. Paste Video URL:</h4>
+                <div
+                  className="url-input-wrapper"
+                  style={{
+                    display: 'flex',
                     gap: '0.75rem',
-                    background: 'white',
-                    border: '1px solid rgba(0,0,0,0.1)',
+                    background: '#f8fafc',
+                    border: '1.5px solid rgba(0,0,0,0.08)',
                     borderRadius: '1rem',
                     padding: '0.4rem',
                     alignItems: 'center'
                   }}
                 >
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder={`Paste ${selectedPlatform} video URL here...`}
                     value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
+                    onChange={(e) => { setVideoUrl(e.target.value); setDlError(""); }}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchDownload()}
                     style={{
                       flexGrow: 1,
                       border: 'none',
                       outline: 'none',
                       padding: '0.75rem',
-                      fontSize: '0.9rem'
+                      fontSize: '0.9rem',
+                      background: 'transparent'
                     }}
                   />
-                  <button 
+                  <button
                     className="btn-primary gradient-btn"
-                    onClick={() => {
-                      if (videoUrl) {
-                        const fileName = `${selectedPlatform}_Video_${Math.random().toString(36).substring(7)}.mp4`;
-                        const newFile = {
-                          name: fileName,
-                          size: (Math.random() * 50 + 10).toFixed(1) + ' MB',
-                          progress: 0,
-                          status: 'idle',
-                          type: 'Download'
-                        };
-                        setFiles(prev => [...prev, newFile]);
-                        setVideoUrl("");
-                        const newIndex = files.length;
-                        setTimeout(() => handleConversion(newIndex), 500);
-                      }
-                    }}
+                    onClick={fetchDownload}
+                    disabled={dlLoading}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
-                      padding: '0.6rem 1.5rem',
+                      padding: '0.65rem 1.5rem',
                       whiteSpace: 'nowrap',
-                      fontSize: '0.9rem'
+                      fontSize: '0.9rem',
+                      opacity: dlLoading ? 0.7 : 1,
+                      cursor: dlLoading ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Get Video
+                    {dlLoading ? (
+                      <>
+                        <span className="dl-spinner"></span>
+                        Fetching...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Get Video
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
 
-              <div className="recent-files" style={{ marginTop: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Recent Downloads</h4>
-                <div className="file-list">
-                  {files.filter(f => f.type === "Download").length === 0 ? (
-                    <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No downloads yet</div>
-                  ) : (
-                    files.filter(f => f.type === "Download").map((file, index) => (
-                      <div
-                        key={index}
-                        className="file-item"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "0.75rem 1rem",
-                          background: "white",
-                          border: "1px solid rgba(0,0,0,0.05)",
-                          borderRadius: "1rem",
-                          marginBottom: "0.5rem",
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                          <div style={{ width: "32px", height: "32px", background: "#8B5CF615", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: '1rem' }}>⬇️</div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.85rem", maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{file.size}</div>
-                          </div>
-                        </div>
-                        <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#f1f1f1", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div className="progress-bar" style={{ height: "100%", width: file.progress + "%", background: "var(--gradient)", transition: "width 0.3s" }}></div>
-                        </div>
-                        <button
-                          className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
-                          style={{ padding: "0.4rem 1rem", fontSize: "0.75rem", borderRadius: '0.5rem' }}
-                          onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
-                        >
-                          {file.status === "idle" ? "Fetch" : file.status === "converting" ? "..." : "Save"}
-                        </button>
-                      </div>
-                    ))
-                  )}
+              {/* Error Card */}
+              {dlError && (
+                <div className="dl-error-card" style={{ marginTop: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '1.4rem', lineHeight: 1 }}>⚠️</div>
+                    <div>
+                      <p style={{ fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.95rem' }}>Could Not Fetch Video</p>
+                      <p style={{ fontSize: '0.85rem', opacity: 0.85, lineHeight: 1.5 }}>{dlError}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Video Preview & Download Result Card */}
+              {dlResult && (
+                <div className="dl-result-card" style={{ marginTop: '1.25rem' }}>
+                  {/* Preview Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <span style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#10b981' }}>Video Found — Confirm &amp; Download</h4>
+                  </div>
+
+                  {/* Thumbnail + Meta */}
+                  <div className="dl-preview-body">
+                    {dlResult.thumbnail && (
+                      <div className="dl-thumb-wrap">
+                        <img
+                          src={dlResult.thumbnail}
+                          alt={dlResult.title || 'Video thumbnail'}
+                          className="dl-thumb"
+                        />
+                        {dlResult.duration && (
+                          <span className="dl-duration-badge">
+                            {formatDuration(dlResult.duration)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="dl-meta">
+                      <p className="dl-title">{dlResult.title || 'Untitled Video'}</p>
+                      {dlResult.author && (
+                        <p className="dl-author">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px', verticalAlign: 'middle' }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                          {dlResult.author}
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <span className="dl-platform-badge" style={{ background: platforms.find(p => p.name === selectedPlatform)?.color || 'var(--primary)' }}>
+                          {selectedPlatform}
+                        </span>
+                        {dlResult.source && dlResult.source !== selectedPlatform.toLowerCase() && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>via {dlResult.source}</span>
+                        )}
+                      </div>
+
+                      {/* Download Quality Buttons */}
+                      <h5 style={{ fontSize: '0.8rem', fontWeight: 700, marginTop: '1rem', marginBottom: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Choose Quality:</h5>
+                      <div className="dl-download-grid">
+                        {dlResult.medias.map((media: any, idx: number) => {
+                          const isAudio = media.type === 'audio';
+                          const label = isAudio
+                            ? `🎵 Audio — ${media.quality?.toUpperCase() || 'MP3'}`
+                            : `⬇️ ${media.quality?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Video'}`;
+                          const size = media.data_size ? formatBytes(media.data_size) : '';
+                          const ext = (media.extension || (isAudio ? 'mp3' : 'mp4')).toLowerCase();
+                          const extLabel = ext.toUpperCase();
+                          const safeBase = (dlResult.title || selectedPlatform)
+                            .replace(/[^\w\s\-]/g, '')
+                            .trim()
+                            .replace(/\s+/g, '_')
+                            .substring(0, 60) || 'video';
+                          const safeQuality = (media.quality || (isAudio ? 'audio' : 'video')).replace(/[^a-z0-9]/gi, '_');
+                          const downloadFilename = `${safeBase}_${safeQuality}.${ext}`;
+
+                          const proxyUrl = buildProxyUrl(
+                            media.url,
+                            media.quality || (isAudio ? 'audio' : 'video'),
+                            ext,
+                            dlResult.title || selectedPlatform
+                          );
+                          return (
+                            <a
+                              key={idx}
+                              href={proxyUrl}
+                              download={downloadFilename}
+                              className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
+                            >
+                              <span className="dl-quality-label">{label}</span>
+                              <span className="dl-quality-meta">
+                                {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
+                                {size && <span>{size}</span>}
+                              </span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1rem', textAlign: 'center' }}>
+                    💡 Tip: If clicking a download button opens the video in a new tab, right-click the video → &quot;Save video as&quot; to save it.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <>
