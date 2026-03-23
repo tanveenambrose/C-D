@@ -1,51 +1,100 @@
 export const runtime = 'edge';
 
-/**
- * STRATEGY: Return a 302 redirect to the CDN URL.
- *
- * Problem: Vercel's datacenter IPs are blocked by YouTube's CDN (403),
- * and browser fetch() is blocked by CORS (no Access-Control-Allow-Origin header).
- *
- * Solution: This endpoint simply redirects the browser to the direct CDN URL.
- * The browser follows the redirect and downloads from the CDN using the USER's
- * own residential IP address, which was already authorized when the video URLs
- * were fetched.
- */
+const MIME_MAP: Record<string, string> = {
+  mp4:  'video/mp4',
+  webm: 'video/webm',
+  mkv:  'video/x-matroska',
+  mov:  'video/quicktime',
+  avi:  'video/x-msvideo',
+  mp3:  'audio/mpeg',
+  m4a:  'audio/mp4',
+  wav:  'audio/wav',
+  ogg:  'audio/ogg',
+  flac: 'audio/flac',
+  aac:  'audio/aac',
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const videoUrl = searchParams.get('url');
+  const filename = searchParams.get('filename') || 'video';
+  const ext = (searchParams.get('ext') || 'mp4').toLowerCase().replace(/^\./, '');
 
   if (!videoUrl) {
     return new Response(JSON.stringify({ error: 'No URL provided' }), { status: 400 });
   }
 
   try {
-    // Validate the URL is safe to redirect to
-    const parsed = new URL(videoUrl);
-    const allowedHosts = [
-      'googlevideo.com', 'rr.googlevideo.com',
-      'cdninstagram.com', 'fbcdn.net', 'fbsbx.com',
-      'tiktokcdn.com', 'tiktokv.com', 'muscdn.com',
-      'akamaized.net', 'cloudfront.net',
-    ];
-    const isAllowed = allowedHosts.some(h =>
-      parsed.hostname === h || parsed.hostname.endsWith('.' + h)
-    );
+    const rangeHeader = request.headers.get('range');
+    const userAgent = request.headers.get('user-agent') 
+      || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-    if (!isAllowed) {
-      return new Response(JSON.stringify({ error: 'Redirect target not whitelisted.' }), { status: 403 });
+    const fetchHeaders: Record<string, string> = {
+      'User-Agent': userAgent,
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      // Don't set Referer/Origin to googlevideo — use youtube.com which the token expects
+      'Referer': 'https://www.youtube.com/',
+    };
+
+    if (rangeHeader) {
+      fetchHeaders['Range'] = rangeHeader;
     }
 
-    // 302 Redirect: browser follows this with its own IP → CDN allows it
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': videoUrl,
-        'Cache-Control': 'no-store',
-      },
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(videoUrl, {
+      headers: fetchHeaders,
+      signal: controller.signal,
+      cache: 'no-store',
+      redirect: 'follow'
     });
 
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid URL' }), { status: 400 });
+    clearTimeout(timeoutId);
+
+    if (!response.ok && response.status !== 206) {
+      console.error(`[Proxy] Upstream ${response.status} for ${videoUrl.substring(0, 60)}`);
+      return new Response(
+        JSON.stringify({ error: `CDN returned ${response.status}`, url: videoUrl.substring(0, 80) }),
+        { status: response.status }
+      );
+    }
+
+    const mimeType = MIME_MAP[ext] || `video/${ext}`;
+
+    const safeBase = filename
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/[^\w\d\-_]/g, '_')
+      .substring(0, 60) || 'video';
+
+    const downloadName = `${safeBase}.${ext}`;
+    const encodedName = encodeURIComponent(downloadName);
+
+    const resHeaders = new Headers({
+      'Content-Disposition': `attachment; filename="${downloadName}"; filename*=UTF-8''${encodedName}`,
+      'Content-Type': mimeType,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      // Allow the browser's own fetch to read this response (in case client-side approach is used)
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) resHeaders.set('Content-Length', contentLength);
+    const acceptRanges = response.headers.get('accept-ranges');
+    if (acceptRanges) resHeaders.set('Accept-Ranges', acceptRanges);
+    const contentRange = response.headers.get('content-range');
+    if (contentRange) resHeaders.set('Content-Range', contentRange);
+
+    return new Response(response.body, { status: response.status, headers: resHeaders });
+
+  } catch (error: any) {
+    const isTimeout = error.name === 'AbortError';
+    console.error('[Proxy] Error:', error.message);
+    return new Response(
+      JSON.stringify({ error: isTimeout ? 'Timed out' : error.message }),
+      { status: isTimeout ? 504 : 500 }
+    );
   }
 }

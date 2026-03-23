@@ -336,27 +336,14 @@ export default function Home() {
 
     setDlLoading(true);
     try {
-      // Step 1: Get API credentials from the server (keeps key out of source code)
-      const configRes = await fetch("/api/config");
-      if (!configRes.ok) throw new Error("Could not load API configuration.");
-      const { apiKey, apiHost } = await configRes.json();
-
-      // Step 2: Call RapidAPI DIRECTLY from the browser (user's own IP).
-      // This is the critical fix: YouTube's CDN will IP-lock the returned video URLs
-      // to THIS user's IP address instead of Vercel's server IP.
-      // That means the browser can then download the video directly without being blocked.
-      const res = await fetch("https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink", {
+      const res = await fetch("/api/download", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-rapidapi-host": apiHost,
-          "x-rapidapi-key": apiKey,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: videoUrl.trim() }),
       });
       const data = await res.json();
 
-      if (!res.ok || data.error || !data.medias || data.medias.length === 0) {
+      if (data.error || !data.medias || data.medias.length === 0) {
         setDlError(
           data.message ||
           "Could not fetch this video. The link may be private, expired, or unsupported."
@@ -386,26 +373,21 @@ export default function Home() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  /**
-   * Download via anchor navigation — bypasses CORS entirely.
-   * Since the browser called RapidAPI directly (user's IP),
-   * the CDN URL is IP-locked to the user's browser IP.
-   * Navigation requests (anchor clicks) are NOT subject to CORS,
-   * so the video will download directly from the CDN.
-   */
-  const handleVideoDownload = (mediaUrl: string, filename: string, idx: number) => {
-    setDlProgress(prev => ({ ...prev, [idx]: 50 }));
-    const a = document.createElement('a');
-    a.href = mediaUrl;
-    a.download = filename;
-    a.target = '_blank'; // fallback if browser blocks download
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    // Show brief success state
-    setDlProgress(prev => ({ ...prev, [idx]: 100 }));
-    setTimeout(() => setDlProgress(prev => { const n = { ...prev }; delete n[idx]; return n; }), 2500);
+  // Build proxy URL that streams through the server, setting Content-Disposition for download
+  const buildProxyUrl = (directUrl: string, quality: string, ext: string, title: string): string => {
+    const safeTitle = (title || 'video')
+      .replace(/[^a-z0-9\s]/gi, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 50);
+    const safeQuality = (quality || 'video').replace(/[^a-z0-9]/gi, '_');
+    const filename = `${safeTitle}_${safeQuality}`;
+    const params = new URLSearchParams({
+      url: directUrl,
+      filename,
+      ext: ext || 'mp4',
+    });
+    return `/api/proxy-download?${params.toString()}`;
   };
 
   const handleFormatChange = (index: number, format: string) => {
@@ -656,42 +638,26 @@ export default function Home() {
                           const safeQuality = (media.quality || (isAudio ? 'audio' : 'video')).replace(/[^a-z0-9]/gi, '_');
                           const downloadFilename = `${safeBase}_${safeQuality}.${ext}`;
 
-                          const isDownloading = dlProgress[idx] !== undefined && dlProgress[idx] < 100;
-                          const isDone = dlProgress[idx] === 100;
+                          const proxyUrl = buildProxyUrl(
+                            media.url,
+                            media.quality || (isAudio ? 'audio' : 'video'),
+                            ext,
+                            dlResult.title || selectedPlatform
+                          );
                           return (
                             <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <button
-                                onClick={() => !isDownloading && handleVideoDownload(media.url, downloadFilename, idx)}
-                                disabled={isDownloading}
+                              <a
+                                href={proxyUrl}
+                                download={downloadFilename}
                                 className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
-                                style={{
-                                  flex: 1,
-                                  cursor: isDownloading ? 'not-allowed' : 'pointer',
-                                  border: 'none',
-                                  textAlign: 'left',
-                                  position: 'relative',
-                                  overflow: 'hidden',
-                                  opacity: isDownloading ? 0.85 : 1
-                                }}
+                                style={{ flex: 1 }}
                               >
-                                {/* Progress bar fill */}
-                                {isDownloading && (
-                                  <div style={{
-                                    position: 'absolute', inset: 0, left: 0,
-                                    width: `${dlProgress[idx]}%`,
-                                    background: isAudio ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)',
-                                    transition: 'width 0.3s ease',
-                                    zIndex: 0
-                                  }} />
-                                )}
-                                <span className="dl-quality-label" style={{ position: 'relative', zIndex: 1 }}>
-                                  {isDone ? '✅ Saved!' : isDownloading ? `⬇️ ${dlProgress[idx]}%…` : label}
+                                <span className="dl-quality-label">{label}</span>
+                                <span className="dl-quality-meta">
+                                  {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
+                                  {size && <span>{size}</span>}
                                 </span>
-                                <span className="dl-quality-meta" style={{ position: 'relative', zIndex: 1 }}>
-                                  {!isDownloading && extLabel && <span className="dl-quality-ext">{extLabel}</span>}
-                                  {!isDownloading && size && <span>{size}</span>}
-                                </span>
-                              </button>
+                              </a>
                               {/* Fallback: open direct URL in new tab */}
                               <a 
                                 href={media.url} 
