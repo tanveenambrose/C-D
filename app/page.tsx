@@ -336,14 +336,27 @@ export default function Home() {
 
     setDlLoading(true);
     try {
-      const res = await fetch("/api/download", {
+      // Step 1: Get API credentials from the server (keeps key out of source code)
+      const configRes = await fetch("/api/config");
+      if (!configRes.ok) throw new Error("Could not load API configuration.");
+      const { apiKey, apiHost } = await configRes.json();
+
+      // Step 2: Call RapidAPI DIRECTLY from the browser (user's own IP).
+      // This is the critical fix: YouTube's CDN will IP-lock the returned video URLs
+      // to THIS user's IP address instead of Vercel's server IP.
+      // That means the browser can then download the video directly without being blocked.
+      const res = await fetch("https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-rapidapi-host": apiHost,
+          "x-rapidapi-key": apiKey,
+        },
         body: JSON.stringify({ url: videoUrl.trim() }),
       });
       const data = await res.json();
 
-      if (data.error || !data.medias || data.medias.length === 0) {
+      if (!res.ok || data.error || !data.medias || data.medias.length === 0) {
         setDlError(
           data.message ||
           "Could not fetch this video. The link may be private, expired, or unsupported."
@@ -357,6 +370,8 @@ export default function Home() {
       setDlLoading(false);
     }
   };
+
+
 
   const formatBytes = (bytes: number): string => {
     if (!bytes) return "";
