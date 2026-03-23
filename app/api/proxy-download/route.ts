@@ -1,6 +1,4 @@
-// Node.js runtime (NOT Edge) — no body size limit, 60s timeout on Pro / 10s on Hobby
-// This is essential for proxying large video files through Vercel
-import { NextResponse } from 'next/server';
+export const runtime = 'edge';
 
 const MIME_MAP: Record<string, string> = {
   mp4:  'video/mp4',
@@ -23,7 +21,7 @@ export async function GET(request: Request) {
   const ext = (searchParams.get('ext') || 'mp4').toLowerCase().replace(/^\./, '');
 
   if (!videoUrl) {
-    return NextResponse.json({ error: 'No URL provided' }, { status: 400 });
+    return new Response(JSON.stringify({ error: 'No URL provided' }), { status: 400 });
   }
 
   try {
@@ -44,17 +42,23 @@ export async function GET(request: Request) {
       fetchHeaders['Range'] = rangeHeader;
     }
 
+    const controller = new AbortController();
+    // Vercel Edge functions can stream indefinitely, but let's give the initial fetch a generous timeout to connect
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(videoUrl, {
       headers: fetchHeaders,
-      // @ts-ignore — Node.js fetch supports this
+      signal: controller.signal,
       cache: 'no-store',
       redirect: 'follow',
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok && response.status !== 206) {
       console.error(`[Proxy] Upstream ${response.status}: ${videoUrl.substring(0, 80)}`);
-      return NextResponse.json(
-        { error: `CDN returned ${response.status}. The video link may have expired. Please fetch again.` },
+      return new Response(
+        JSON.stringify({ error: `CDN returned ${response.status}. The video link may have expired. Please fetch again.` }),
         { status: response.status }
       );
     }
@@ -74,6 +78,7 @@ export async function GET(request: Request) {
       'Content-Type': mimeType,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
+      'Access-Control-Allow-Origin': '*',
     });
 
     const contentLength = response.headers.get('content-length');
@@ -85,7 +90,7 @@ export async function GET(request: Request) {
     const contentRange = response.headers.get('content-range');
     if (contentRange) resHeaders.set('Content-Range', contentRange);
 
-    // Stream the response body directly — Node.js runtime handles this without body size limits
+    // Stream the response body directly — Edge runtime has no timeout limit when streaming
     return new Response(response.body, {
       status: response.status,
       headers: resHeaders,
@@ -93,9 +98,10 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('[Proxy Download] Error:', error.message);
-    return NextResponse.json(
-      { error: `Proxy failed: ${error.message}` },
-      { status: 500 }
+    const isTimeout = error.name === 'AbortError';
+    return new Response(
+      JSON.stringify({ error: isTimeout ? 'Connection to CDN timed out' : `Proxy failed: ${error.message}` }),
+      { status: isTimeout ? 504 : 500 }
     );
   }
 }
