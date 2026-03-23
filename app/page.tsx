@@ -642,29 +642,65 @@ export default function Home() {
                             dlResult.title || selectedPlatform
                           );
                           return (
-                            <a
-                              key={idx}
-                              href={proxyUrl}
-                              download={downloadFilename}
-                              className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
-                            >
-                              <span className="dl-quality-label">{label}</span>
-                              <span className="dl-quality-meta">
-                                {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
-                                {size && <span>{size}</span>}
-                              </span>
-                            </a>
+                            <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <a
+                                href={proxyUrl}
+                                download={downloadFilename}
+                                className={`dl-quality-btn ${isAudio ? 'dl-quality-btn--audio' : 'dl-quality-btn--video'}`}
+                                style={{ flex: 1 }}
+                              >
+                                <span className="dl-quality-label">{label}</span>
+                                <span className="dl-quality-meta">
+                                  {extLabel && <span className="dl-quality-ext">{extLabel}</span>}
+                                  {size && <span>{size}</span>}
+                                </span>
+                              </a>
+                              <a 
+                                href={media.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                title="Backup: Open direct link"
+                                style={{
+                                  padding: '0.6rem 0.75rem',
+                                  borderRadius: '0.65rem',
+                                  background: '#f1f5f9',
+                                  color: '#64748b',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  border: '1.5px solid rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                                onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                              </a>
+                            </div>
                           );
                         })}
                       </div>
                     </div>
                   </div>
-
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1rem', textAlign: 'center' }}>
-                    💡 Tip: If clicking a download button opens the video in a new tab, right-click the video → &quot;Save video as&quot; to save it.
-                  </p>
+                  
+                  <div style={{ 
+                    marginTop: '1.25rem', 
+                    padding: '1rem', 
+                    background: '#fefce8', 
+                    border: '1px solid #fef08a', 
+                    borderRadius: '1rem',
+                    display: 'flex',
+                    gap: '0.75rem',
+                    alignItems: 'flex-start'
+                  }}>
+                    <div style={{ fontSize: '1.2rem' }}>💡</div>
+                    <p style={{ fontSize: '0.75rem', color: '#854d0e', lineHeight: 1.5 }}>
+                      <strong>Pro Tip:</strong> If the main download button fails (common for YouTube on cloud servers), use the <strong>Direct Link (↗️)</strong> button. It opens the video directly in a new tab. Then, right-click the video and select <strong>&quot;Save Video As&quot;</strong> to save it to your device.
+                    </p>
+                  </div>
                 </div>
               )}
+
             </div>
           ) : (
             <>
