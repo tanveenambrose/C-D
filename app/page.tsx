@@ -29,6 +29,7 @@ export default function Home() {
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
+  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; isOpen: boolean } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Download section state
@@ -470,6 +471,52 @@ export default function Home() {
           return;
         }
       }
+
+      if (activeDocumentTool === 'pdf-to-word') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/pdf-to-docx', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const blob = await response.blob();
+          const newName = fileItem.name.replace(/\.pdf$/i, '.docx');
+          const url = URL.createObjectURL(blob);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+
+          // Trigger download with correct filename
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', newName);
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 5000);
+
+          return;
+
+        } catch (err: any) {
+          console.error("PDF to Word Error:", err);
+          alert('Failed to convert PDF to Word: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
       simulateSimulation(index);
       return;
     }
@@ -732,6 +779,7 @@ export default function Home() {
 
   return (
     <div className="app-container">
+
       {/* Sidebar Backdrop */}
       <div 
         className={`sidebar-backdrop ${isSidebarOpen ? 'show' : ''}`} 
@@ -1235,6 +1283,51 @@ export default function Home() {
           )}
         </section>
       </main>
+
+      {/* Document Preview Modal */}
+      {docPreview?.isOpen && (
+        <div className="preview-modal-overlay">
+          <div className="preview-modal-card" style={{ maxWidth: '600px' }}>
+            <button 
+              onClick={() => {
+                setDocPreview(null);
+                if (docPreview.downloadUrl) window.URL.revokeObjectURL(docPreview.downloadUrl);
+              }}
+              style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', zIndex: 10 }}
+            >×</button>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="section-title" style={{ fontSize: '1.6rem' }}>Document Preview</h2>
+              <p style={{ color: 'var(--text-muted)' }}>{docPreview.contentTitle}</p>
+            </div>
+            
+            <div className="preview-modal-content" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1.5rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}>{docPreview.fileName}</h3>
+              <p style={{ color: '#64748b', lineHeight: 1.6 }}>
+                {docPreview.contentBody}
+              </p>
+            </div>
+
+            <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+              <button 
+                className="btn-primary gradient-btn" 
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = docPreview.downloadUrl;
+                  link.setAttribute('download', docPreview.fileName);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                style={{ padding: '0.8rem 3rem', borderRadius: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Word File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       {previewData?.isOpen && (
