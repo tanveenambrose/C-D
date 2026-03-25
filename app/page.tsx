@@ -29,7 +29,7 @@ export default function Home() {
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
-  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; isOpen: boolean } | null>(null);
+  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; isOpen: boolean, isPdf?: boolean } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Download section state
@@ -351,33 +351,65 @@ export default function Home() {
       if (activeDocumentTool === 'word-to-pdf') {
         try {
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
-          const arrayBuffer = await fileItem.file.arrayBuffer();
-          
-          // dynamic import to avoid SSR 'window not defined' errors
-          const mammoth = (await import('mammoth')).default || await import('mammoth');
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
-          
-          const result = await mammoth.convertToHtml({ arrayBuffer });
-          const html = `<html><body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6;">${result.value}</body></html>`;
-          
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 75 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
 
-          const html2pdf = (await import('html2pdf.js')).default;
-          const element = document.createElement('div');
-          element.innerHTML = html;
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/word-to-pdf', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const base64Content = data.base64;
+          const dataUrl = `data:${data.contentType};base64,${base64Content}`;
+          const newName = data.fileName;
+
+          // Create a File version for the most reliable naming/downloading
+          const byteCharacters = atob(base64Content);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
           
-          const opt = {
-            margin: 0.5,
-            filename: fileItem.name.replace(/\.docx?$/i, '.pdf'),
-            image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as 'portrait' }
-          };
-          
-          // html2pdf returns a promise that resolves when saving is complete
-          await html2pdf().set(opt).from(element).save();
-          
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+          // Use File constructor to give the browser the name explicitly
+          const downloadFile = new File([byteArray], newName, { type: 'application/pdf' });
+          const downloadUrl = URL.createObjectURL(downloadFile);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
+
+          // Trigger preview automatically using Data URL (proven to work for preview)
+          setDocPreview({
+            isOpen: true,
+            fileName: newName,
+            contentTitle: "Word to PDF Conversion Success",
+            contentBody: "Your file is ready! You can preview it below or download it directly.",
+            downloadUrl: dataUrl,
+            isPdf: true
+          });
+
+          // Trigger automatic download using the named File URL
+          setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName);
+            document.body.appendChild(link);
+            link.click();
+            // Increased delay before cleanup to ensure browser sees the attributes
+            setTimeout(() => {
+              if (document.body.contains(link)) document.body.removeChild(link);
+            }, 1000);
+          }, 800);
+
           return;
         } catch (err: any) {
           console.error("Word to PDF Error:", err);
@@ -1244,14 +1276,40 @@ export default function Home() {
                             <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {activeDocumentTool !== 'merge' && (
                               <button
                                 className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
                                 style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? primaryBg : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B', border: 'none' }}
-                                onClick={() => file.status === "idle" ? handleConversion(files.indexOf(file)) : null}
+                                onClick={() => {
+                                  if (file.status === "idle") {
+                                    handleConversion(files.indexOf(file));
+                                  } else if (file.status === "download") {
+                                    const link = document.createElement('a');
+                                    link.href = file.resultUrl || "#";
+                                    link.setAttribute('download', file.name.replace(/\.docx?$/i, '.pdf'));
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }
+                                }}
                               >
-                                {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Saved"}
+                                {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Download"}
+                              </button>
+                            )}
+                            {file.status === 'download' && file.resultUrl && (
+                              <button
+                                onClick={() => setDocPreview({
+                                  isOpen: true,
+                                  fileName: file.name.replace(/\.docx?$/i, '.pdf'),
+                                  contentTitle: "Conversion Result",
+                                  contentBody: "Your document has been converted successfully.",
+                                  downloadUrl: file.resultUrl,
+                                  isPdf: true
+                                })}
+                                style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.6rem', fontSize: '0.8rem', fontWeight: 600 }}
+                              >
+                                Preview
                               </button>
                             )}
                             <button
@@ -1291,7 +1349,6 @@ export default function Home() {
             <button 
               onClick={() => {
                 setDocPreview(null);
-                if (docPreview.downloadUrl) window.URL.revokeObjectURL(docPreview.downloadUrl);
               }}
               style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', zIndex: 10 }}
             >×</button>
@@ -1300,12 +1357,28 @@ export default function Home() {
               <p style={{ color: 'var(--text-muted)' }}>{docPreview.contentTitle}</p>
             </div>
             
-            <div className="preview-modal-content" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1.5rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}>{docPreview.fileName}</h3>
-              <p style={{ color: '#64748b', lineHeight: 1.6 }}>
-                {docPreview.contentBody}
-              </p>
+            <div className="preview-modal-content" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '1.5rem', border: '1px solid #e2e8f0', textAlign: 'center', minHeight: '400px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {docPreview.isPdf ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <iframe 
+                    key={docPreview.downloadUrl}
+                    src={docPreview.downloadUrl} 
+                    style={{ width: '100%', height: '500px', border: 'none', borderRadius: '1rem' }}
+                    title="PDF Preview"
+                  />
+                  <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#64748b' }}>
+                    Preview not loading? <a href={docPreview.downloadUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}>Open PDF in new tab</a>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}>{docPreview.fileName}</h3>
+                  <p style={{ color: '#64748b', lineHeight: 1.6 }}>
+                    {docPreview.contentBody}
+                  </p>
+                </>
+              )}
             </div>
 
             <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
@@ -1322,7 +1395,7 @@ export default function Home() {
                 style={{ padding: '0.8rem 3rem', borderRadius: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download Word File
+                Download {docPreview.isPdf ? 'PDF' : 'Word'} File
               </button>
             </div>
           </div>
