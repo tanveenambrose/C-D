@@ -53,13 +53,19 @@ export async function POST(req: NextRequest) {
 
     const pdfBase64 = fileData.FileData; // ConvertAPI already returns base64
     const outputName = file.name.replace(/\.docx?$/i, '.pdf');
+    const downloadId = crypto.randomUUID();
 
-    console.log(`Word-to-PDF: Successfully converted ${file.name}. Base64 length: ${pdfBase64.length}`);
+    // Store PDF for later download via GET request
+    const { storePdf } = await import('../utils/store');
+    storePdf(downloadId, Buffer.from(pdfBase64, 'base64'), outputName);
+
+    console.log(`Word-to-PDF: Successfully converted ${file.name}. Base64 length: ${pdfBase64.length}, DownloadId: ${downloadId}`);
 
     return NextResponse.json({
         base64: pdfBase64,
         fileName: outputName,
-        contentType: 'application/pdf'
+        contentType: 'application/pdf',
+        downloadId: downloadId
     });
   } catch (err: any) {
     console.error('word-to-pdf error:', err);

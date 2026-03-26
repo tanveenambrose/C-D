@@ -29,8 +29,10 @@ export default function Home() {
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
-  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; isOpen: boolean, isPdf?: boolean } | null>(null);
+  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; vaultUrl?: string; isOpen: boolean, isPdf?: boolean, isImage?: boolean } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
 
   // Download section state
   const [dlLoading, setDlLoading] = useState(false);
@@ -168,6 +170,10 @@ export default function Home() {
         "-=0.7"
       );
     }
+  }, []);
+
+  useEffect(() => {
+    setIsMounted(true);
   }, []);
 
   const handleFiles = (incomingFiles: FileList | null) => {
@@ -372,18 +378,8 @@ export default function Home() {
           const base64Content = data.base64;
           const dataUrl = `data:${data.contentType};base64,${base64Content}`;
           const newName = data.fileName;
-
-          // Create a File version for the most reliable naming/downloading
-          const byteCharacters = atob(base64Content);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          
-          // Use File constructor to give the browser the name explicitly
-          const downloadFile = new File([byteArray], newName, { type: 'application/pdf' });
-          const downloadUrl = URL.createObjectURL(downloadFile);
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
 
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
 
@@ -393,21 +389,20 @@ export default function Home() {
             fileName: newName,
             contentTitle: "Word to PDF Conversion Success",
             contentBody: "Your file is ready! You can preview it below or download it directly.",
-            downloadUrl: dataUrl,
+            downloadUrl: dataUrl, // Keep Data URL for iframe preview
+            vaultUrl: downloadUrl, // Real API URL for professional downloads
             isPdf: true
           });
 
-          // Trigger automatic download using the named File URL
+          // Trigger automatic download
           setTimeout(() => {
+            console.log("Vault: Triggering Word-to-PDF download", downloadUrl, newName);
             const link = document.createElement('a');
             link.href = downloadUrl;
-            link.setAttribute('download', newName);
+            link.setAttribute('download', newName); 
             document.body.appendChild(link);
             link.click();
-            // Increased delay before cleanup to ensure browser sees the attributes
-            setTimeout(() => {
-              if (document.body.contains(link)) document.body.removeChild(link);
-            }, 1000);
+            document.body.removeChild(link);
           }, 800);
 
           return;
@@ -464,41 +459,65 @@ export default function Home() {
         }
       }
 
-      if (activeDocumentTool === 'jpg-to-pdf') {
+      if (activeDocumentTool === 'pdf-to-jpg') {
         try {
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
           
-          const arrayBuffer = await fileItem.file.arrayBuffer();
-          const pdfDoc = await PDFDocument.create();
-          
-          let image;
-          if (fileItem.file.type === 'image/jpeg' || fileItem.name.toLowerCase().endsWith('.jpg') || fileItem.name.toLowerCase().endsWith('.jpeg')) {
-             image = await pdfDoc.embedJpg(arrayBuffer);
-          } else {
-             image = await pdfDoc.embedPng(arrayBuffer);
-          }
-          
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 60 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file);
 
-          const page = pdfDoc.addPage([image.width, image.height]);
-          page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-          
-          const pdfBytes = await pdfDoc.save();
-          const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-          
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
-          
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', fileItem.name.replace(/\.[^/.]+$/, ".pdf"));
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 40 } : f));
+
+          const response = await fetch('/api/pdf-to-jpg', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const base64Content = data.base64;
+          const dataUrl = `data:${data.contentType};base64,${base64Content}`;
+          const newName = data.fileName;
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
+
+          // Trigger preview
+          setDocPreview({
+            isOpen: true,
+            fileName: newName,
+            contentTitle: "PDF to JPG Conversion Success",
+            contentBody: data.contentType === 'application/zip' 
+              ? "Your PDF has several pages! They are now in a ZIP file below." 
+              : "Your PDF has been converted to an image. You can preview it below.",
+            downloadUrl: dataUrl,
+            vaultUrl: downloadUrl, // Real API URL for professional downloads
+            isPdf: false,
+            isImage: data.contentType !== 'application/zip'
+          });
+
+          // Trigger automatic download
+          setTimeout(() => {
+            console.log("Vault: Triggering PDF-to-JPG download", downloadUrl, newName);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
           return;
         } catch (err: any) {
-          console.error("JPG to PDF Error:", err);
-          alert('Failed to convert Image to PDF: ' + err.message);
+          console.error("PDF to JPG Error:", err);
+          alert('Failed to convert PDF to JPG: ' + err.message);
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
           return;
         }
@@ -544,6 +563,53 @@ export default function Home() {
         } catch (err: any) {
           console.error("PDF to Word Error:", err);
           alert('Failed to convert PDF to Word: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'jpg-to-pdf') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/jpg-to-pdf', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
+          const newName = data.fileName;
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
+
+          // Trigger automatic download
+          setTimeout(() => {
+            console.log("Vault: Triggering JPG-to-PDF download", downloadUrl, newName);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
+          return;
+        } catch (err: any) {
+          console.error("JPG to PDF Error:", err);
+          alert('Failed to convert JPG to PDF: ' + err.message);
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
           return;
         }
@@ -701,6 +767,22 @@ export default function Home() {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleMoveFile = (actualIndex: number, direction: 'up' | 'down') => {
+    const newFiles = [...files];
+    const currentFile = files[actualIndex];
+    const filteredFiles = files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool));
+    const filteredIndex = filteredFiles.indexOf(currentFile);
+
+    const targetFilteredIndex = direction === 'up' ? filteredIndex - 1 : filteredIndex + 1;
+    if (targetFilteredIndex < 0 || targetFilteredIndex >= filteredFiles.length) return;
+
+    const neighborFile = filteredFiles[targetFilteredIndex];
+    const actualNeighborIndex = files.indexOf(neighborFile);
+
+    [newFiles[actualIndex], newFiles[actualNeighborIndex]] = [newFiles[actualNeighborIndex], newFiles[actualIndex]];
+    setFiles(newFiles);
+  };
+
   // ──────────────────────────────────────────────
   // Platform URL validation helpers
   // ──────────────────────────────────────────────
@@ -810,7 +892,7 @@ export default function Home() {
   const primaryBg = activeToolData ? activeToolData.color : (currentCategory?.gradient || 'var(--gradient)');
 
   return (
-    <div className="app-container">
+    <div className="app-container" suppressHydrationWarning>
 
       {/* Sidebar Backdrop */}
       <div 
@@ -842,7 +924,7 @@ export default function Home() {
           ))}
         </nav>
         <div className="sidebar-footer" style={{ padding: '1rem' }}>
-          <div className="pro-tag" style={{ scale: '0.8', transformOrigin: 'left' }}>PRO</div>
+          <div className="pro-tag" style={{ scale: '0.8', transformOrigin: 'left' }} suppressHydrationWarning>PRO</div>
           <p style={{ fontSize: '0.75rem' }}>Unlock all features</p>
           <button className="upgrade-btn" style={{ padding: '0.5rem', fontSize: '0.75rem' }}>Upgrade</button>
         </div>
@@ -852,7 +934,13 @@ export default function Home() {
       <main className="main-content">
         {/* Header */}
         <header className="header" ref={headerRef} style={{ padding: '0.5rem 1.5rem', minHeight: '60px' }}>
-          <div className="mobile-toggle" onClick={() => setIsSidebarOpen(true)}>☰</div>
+          <div className="mobile-toggle" onClick={() => setIsSidebarOpen(true)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </div>
           <div className="search-bar" style={{ maxWidth: '300px' }}>
             <input type="text" placeholder="Search..." style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} />
           </div>
@@ -913,7 +1001,9 @@ export default function Home() {
                         <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.name}</span>
                       </div>
                       {selectedPlatform === p.name && (
-                        <div style={{ width: '18px', height: '18px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 800 }}>✓</div>
+                        <div style={{ width: '18px', height: '18px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 800 }} suppressHydrationWarning>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1319,19 +1409,57 @@ export default function Home() {
                             >
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                             </button>
+
+                            {activeDocumentTool === 'merge' && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '0.5rem' }}>
+                                <button 
+                                  onClick={() => handleMoveFile(files.indexOf(file), 'up')}
+                                  disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0}
+                                  style={{ 
+                                    background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
+                                    cursor: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 'not-allowed' : 'pointer', 
+                                    opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 0.3 : 1 
+                                  }}
+                                  title="Move Up"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                </button>
+                                <button 
+                                  onClick={() => handleMoveFile(files.indexOf(file), 'down')}
+                                  disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1}
+                                  style={{ 
+                                    background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
+                                    cursor: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 'not-allowed' : 'pointer', 
+                                    opacity: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 0.3 : 1 
+                                  }}
+                                  title="Move Down"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))
                     )}
                   </div>
-                  {activeDocumentTool === 'merge' && files.filter(f => f.type === activeCategory).length > 1 && (
+                  {activeDocumentTool === 'merge' && (
                     <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
                       <button 
                          className="btn-primary"
-                         style={{ background: primaryBg, padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)' }}
+                         style={{ 
+                            background: files.filter(f => f.type === activeCategory).length > 1 ? primaryBg : '#CBD5E1', 
+                            padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, 
+                            cursor: files.filter(f => f.type === activeCategory).length > 1 ? 'pointer' : 'not-allowed', 
+                            boxShadow: files.filter(f => f.type === activeCategory).length > 1 ? '0 10px 25px -5px rgba(0,0,0,0.2)' : 'none',
+                            opacity: files.filter(f => f.type === activeCategory).length > 1 ? 1 : 0.7
+                         }}
                          onClick={handleMergePdfs}
+                         disabled={files.filter(f => f.type === activeCategory).length <= 1}
                       >
-                         Merge {files.filter(f => f.type === activeCategory).length} PDFs Now
+                         {files.filter(f => f.type === activeCategory).length <= 1 
+                           ? "Add more PDFs to merge" 
+                           : `Merge ${files.filter(f => f.type === activeCategory).length} PDFs Now`}
                       </button>
                     </div>
                   )}
@@ -1370,6 +1498,14 @@ export default function Home() {
                     Preview not loading? <a href={docPreview.downloadUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}>Open PDF in new tab</a>
                   </p>
                 </div>
+              ) : docPreview.isImage ? (
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <img 
+                    src={docPreview.downloadUrl} 
+                    alt="Preview" 
+                    style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '1rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                  />
+                </div>
               ) : (
                 <>
                   <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
@@ -1386,7 +1522,7 @@ export default function Home() {
                 className="btn-primary gradient-btn" 
                 onClick={() => {
                   const link = document.createElement('a');
-                  link.href = docPreview.downloadUrl;
+                  link.href = docPreview.vaultUrl || docPreview.downloadUrl;
                   link.setAttribute('download', docPreview.fileName);
                   document.body.appendChild(link);
                   link.click();
@@ -1395,7 +1531,7 @@ export default function Home() {
                 style={{ padding: '0.8rem 3rem', borderRadius: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download {docPreview.isPdf ? 'PDF' : 'Word'} File
+                Download {docPreview.isPdf ? 'PDF' : (docPreview.isImage ? 'Image' : 'File')}
               </button>
             </div>
           </div>
