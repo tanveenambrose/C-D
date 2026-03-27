@@ -29,7 +29,7 @@ export default function Home() {
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
-  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; vaultUrl?: string; isOpen: boolean, isPdf?: boolean, isImage?: boolean } | null>(null);
+  const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; vaultUrl?: string; isOpen: boolean, isPdf?: boolean, isImage?: boolean, isZip?: boolean, zipFiles?: string[] } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -349,6 +349,66 @@ export default function Home() {
         } catch (err: any) {
           console.error("Watermark Error:", err);
           alert("Failed to add Watermark: " + (err.message || "Unknown error"));
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'compress') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/compress-pdf', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const base64Content = data.base64;
+          const dataUrl = `data:${data.contentType};base64,${base64Content}`;
+          const newName = data.fileName;
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
+
+          // Trigger preview automatically
+          setDocPreview({
+            isOpen: true,
+            fileName: newName,
+            contentTitle: "PDF Compression Success",
+            contentBody: "Your PDF has been compressed for efficiency! You can preview it below or download it directly.",
+            downloadUrl: dataUrl, // Data URL for preview
+            vaultUrl: downloadUrl, // API URL for download
+            isPdf: true
+          });
+
+          // Trigger automatic download
+          setTimeout(() => {
+            console.log("Vault: Triggering Compress-PDF download", downloadUrl, newName);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
+          return;
+        } catch (err: any) {
+          console.error("PDF Compression Error:", err);
+          alert('Failed to compress PDF: ' + err.message);
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
           return;
         }
@@ -719,6 +779,78 @@ export default function Home() {
         );
       }
     }, 100);
+  };
+
+  const handleCompressAllPdfs = async () => {
+    const docs = files.filter(f => f.type === 'Documents' && f.documentTool === 'compress');
+    if (docs.length < 1) {
+      alert("Please select at least 1 PDF to compress.");
+      return;
+    }
+
+    try {
+      setFiles(prev => prev.map(f => (f.type === 'Documents' && f.documentTool === 'compress') ? { ...f, status: "converting", progress: 10 } : f));
+      
+      const zip = new JSZip();
+      const compressedFileNames: string[] = [];
+      
+      for (let i = 0; i < docs.length; i++) {
+        const fileItem = docs[i];
+        const index = files.indexOf(fileItem);
+        
+        setFiles(prev => prev.map((f, idx) => idx === index ? { ...f, progress: 30 } : f));
+
+        const formData = new FormData();
+        formData.append('file', fileItem.file, fileItem.name);
+
+        const response = await fetch('/api/compress-pdf', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to compress ${fileItem.name}`);
+        }
+
+        const data = await response.json();
+        const binaryString = window.atob(data.base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let j = 0; j < binaryString.length; j++) {
+          bytes[j] = binaryString.charCodeAt(j);
+        }
+        
+        zip.file(data.fileName, bytes);
+        compressedFileNames.push(data.fileName);
+        
+        setFiles(prev => prev.map((f, idx) => idx === index ? { ...f, progress: 100, status: 'download', resultUrl: `/api/download-file?id=${data.downloadId}` } : f));
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const zipName = `compressed_pdfs_${Date.now()}.zip`;
+
+      setDocPreview({
+        isOpen: true,
+        fileName: zipName,
+        contentTitle: "Multi-PDF Compression Success",
+        contentBody: `Successfully compressed ${docs.length} PDFs into a ZIP archive.`,
+        downloadUrl: zipUrl,
+        isZip: true,
+        zipFiles: compressedFileNames
+      });
+
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.setAttribute('download', zipName);
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => { document.body.removeChild(link); }, 5000);
+
+    } catch (err: any) {
+      console.error("Compression Error:", err);
+      alert("Failed to compress PDFs: " + err.message);
+      setFiles(prev => prev.map(f => (f.type === 'Documents' && f.documentTool === 'compress') ? { ...f, status: "idle", progress: 0 } : f));
+    }
   };
 
   const handleMergePdfs = async () => {
@@ -1463,6 +1595,22 @@ export default function Home() {
                       </button>
                     </div>
                   )}
+                  {activeDocumentTool === 'compress' && files.filter(f => f.type === activeCategory).length > 1 && (
+                    <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                      <button 
+                         className="btn-primary"
+                         style={{ 
+                            background: primaryBg, 
+                            padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, 
+                            cursor: 'pointer', 
+                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)'
+                         }}
+                         onClick={handleCompressAllPdfs}
+                      >
+                         Compress & Zip {files.filter(f => f.type === activeCategory).length} PDFs
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -1505,6 +1653,23 @@ export default function Home() {
                     alt="Preview" 
                     style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '1rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                   />
+                </div>
+              ) : docPreview.isZip ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                  <div style={{ fontSize: '5rem', marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.1))' }}>📦</div>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>ZIP Archive Ready</h3>
+                  <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.9rem' }}>{docPreview.contentBody}</p>
+                  
+                  <div style={{ width: '100%', textAlign: 'left', background: 'white', borderRadius: '1rem', padding: '1rem', border: '1px solid #eee', maxHeight: '200px', overflowY: 'auto' }}>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#999', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Files in package:</p>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {docPreview.zipFiles?.map((name, i) => (
+                        <li key={i} style={{ fontSize: '0.85rem', padding: '0.4rem 0', borderBottom: i === (docPreview.zipFiles?.length || 0) - 1 ? 'none' : '1px solid #f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ color: '#E2574C' }}>PDF</span> {name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               ) : (
                 <>
