@@ -1,10 +1,20 @@
 "use client";
 
+// CRITICAL: Polyfill DOMMatrix for Node.js evaluation to prevent PDF.js from crashing during SSR module evaluation
+if (typeof window === 'undefined') {
+  (global as any).DOMMatrix = class DOMMatrix {
+    constructor() {}
+  };
+}
+
 import { useEffect, useState, useRef } from "react";
 import gsap from "gsap";
 import { removeBackground } from "@imgly/background-removal";
 import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
+
+// Set up PDF.js worker dynamically in client
+let pdfjsLib: any = null;
 
 // Document Tools List (ilovepdf style)
 const pdfTools = [
@@ -30,8 +40,11 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
   const [docPreview, setDocPreview] = useState<{ fileName: string; contentTitle: string; contentBody: string; downloadUrl: string; vaultUrl?: string; isOpen: boolean, isPdf?: boolean, isImage?: boolean, isZip?: boolean, zipFiles?: string[] } | null>(null);
+  const [organizedPages, setOrganizedPages] = useState<{ [key: string]: { id: string; thumbnail: string; originalIndex: number; deleted: boolean }[] }>({});
+  const [isGeneratingThumbnails, setIsGeneratingThumbnails] = useState<Record<string, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [splitMode, setSplitMode] = useState<'single' | 'zip'>('single');
 
 
   // Download section state
@@ -179,6 +192,7 @@ export default function Home() {
   const handleFiles = (incomingFiles: FileList | null) => {
     if (!incomingFiles) return;
     const newFiles = Array.from(incomingFiles).map((file) => ({
+      id: Math.random().toString(36).substr(2, 9), // Unique ID for state tracking
       file: file, // Store the actual file object
       name: file.name,
       size: (file.size / 1024).toFixed(1),
@@ -188,7 +202,107 @@ export default function Home() {
       documentTool: activeCategory === 'Documents' ? activeDocumentTool : null,
       targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : (activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.formats[0] : 'PDF') || 'PDF'
     }));
+    
+    // Trigger thumbnail generation for Split tool
+    if (activeDocumentTool === 'split') {
+      newFiles.forEach(f => {
+        if (f.file.type === 'application/pdf') {
+          generateThumbnails(f);
+        }
+      });
+    }
+
     setFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  // Automatically trigger PDF analysis when Split PDF tool is active
+  useEffect(() => {
+    if (activeDocumentTool === 'split' && files.length > 0) {
+      files.forEach(fileItem => {
+        if (fileItem.file?.type === 'application/pdf' && !organizedPages[fileItem.id] && !isGeneratingThumbnails[fileItem.id]) {
+          generateThumbnails(fileItem);
+        }
+      });
+    }
+  }, [activeDocumentTool, files, organizedPages, isGeneratingThumbnails]);
+
+  const generateThumbnails = async (fileItem: any) => {
+    const fileId = fileItem.id;
+    setIsGeneratingThumbnails(prev => ({ ...prev, [fileId]: true }));
+    
+    try {
+      // Load pdfjs-dist dynamically on client using legacy build for better compatibility
+      if (!pdfjsLib) {
+        // Standard dynamic import so Next.js can resolve and bundle the module
+        const pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        pdfjsLib = pdfjsModule;
+        // Strict version matching for worker to prevent "Path logic" issues
+        const version = '5.5.207'; 
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/legacy/build/pdf.worker.min.mjs`;
+      }
+
+      const arrayBuffer = await fileItem.file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const numPages = pdf.numPages;
+      const pages: { id: string; thumbnail: string; originalIndex: number; deleted: boolean }[] = [];
+
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.3 }); // Small scale for thumbnails
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: context!,
+          viewport: viewport,
+          // @ts-ignore - Handle version differences in RenderParameters
+          canvas: canvas 
+        };
+        await page.render(renderContext).promise;
+        pages.push({
+          id: Math.random().toString(36).substr(2, 9),
+          thumbnail: canvas.toDataURL(),
+          originalIndex: i - 1,
+          deleted: false
+        });
+        
+        // Update progress occasionally
+        if (i % 2 === 0 || i === numPages) {
+          setFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: Math.floor((i / numPages) * 100) } : f));
+        }
+      }
+
+      setOrganizedPages(prev => ({ ...prev, [fileId]: pages }));
+    } catch (err) {
+      console.error("Thumbnail generation error:", err);
+    } finally {
+      setIsGeneratingThumbnails(prev => ({ ...prev, [fileId]: false }));
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 100 } : f));
+    }
+  };
+
+  const handleDeleteOrganizedPage = (fileId: string, pageId: string) => {
+    setOrganizedPages(prev => ({
+      ...prev,
+      [fileId]: prev[fileId].map(p => p.id === pageId ? { ...p, deleted: !p.deleted } : p)
+    }));
+  };
+
+  const handleMoveOrganizedPage = (fileId: string, pageId: string, direction: 'left' | 'right') => {
+    setOrganizedPages(prev => {
+      const pages = [...prev[fileId]];
+      const index = pages.findIndex(p => p.id === pageId);
+      if (index === -1) return prev;
+
+      const newIndex = direction === 'left' ? index - 1 : index + 1;
+      if (newIndex < 0 || newIndex >= pages.length) return prev;
+
+      [pages[index], pages[newIndex]] = [pages[newIndex], pages[index]];
+      return { ...prev, [fileId]: pages };
+    });
   };
 
   const handleConversion = async (index: number) => {
@@ -255,50 +369,75 @@ export default function Home() {
     if (fileItem.type === 'Documents' && activeDocumentTool) {
       if (activeDocumentTool === 'split') {
         try {
+          const fileId = fileItem.id;
+          const pages = organizedPages[fileId];
+
+          if (!pages || pages.length === 0) {
+            alert("No pages found for this PDF.");
+            return;
+          }
+
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
           
           const arrayBuffer = await fileItem.file.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const numberOfPages = pdfDoc.getPageCount();
+          const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
+          const activePages = pages.filter(p => !p.deleted);
 
-          if (numberOfPages <= 1) {
-            alert("This PDF only has 1 page, cannot split.");
+          if (activePages.length === 0) {
+            alert("No pages selected. Please keep at least one page.");
             setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
             return;
           }
 
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 40 } : f));
 
-          const zip = new JSZip();
-          const baseName = fileItem.name.replace(/\.[^/.]+$/, "");
-
-          // Extract each page into a separate PDF
-          for (let p = 0; p < numberOfPages; p++) {
+          if (splitMode === 'single') {
             const newPdf = await PDFDocument.create();
-            const [copiedPage] = await newPdf.copyPages(pdfDoc, [p]);
-            newPdf.addPage(copiedPage);
-            const pdfBytes = await newPdf.save();
-            zip.file(`${baseName}_page_${p + 1}.pdf`, pdfBytes);
+            const indicesToCopy = activePages.map(p => p.originalIndex);
+            const copiedPages = await newPdf.copyPages(sourcePdfDoc, indicesToCopy);
+            copiedPages.forEach(p => newPdf.addPage(p));
             
-            // visually update progress incrementally
-            if (p % 5 === 0) {
-               setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 + Math.floor((p / numberOfPages) * 30) } : f));
+            const pdfBytes = await newPdf.save();
+            const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileItem.name.replace(/\.[^/.]+$/, "_organized.pdf"));
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+          } else {
+            // ZIP Mode
+            const zip = new JSZip();
+            const baseName = fileItem.name.replace(/\.[^/.]+$/, "");
+
+            for (let p = 0; p < activePages.length; p++) {
+              const newPdf = await PDFDocument.create();
+              const [copiedPage] = await newPdf.copyPages(sourcePdfDoc, [activePages[p].originalIndex]);
+              newPdf.addPage(copiedPage);
+              const pdfBytes = await newPdf.save();
+              zip.file(`${baseName}_page_${p + 1}.pdf`, pdfBytes);
+              
+              if (p % 5 === 0) {
+                 setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 40 + Math.floor((p / activePages.length) * 50) } : f));
+              }
             }
+
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            const zipUrl = URL.createObjectURL(zipBlob);
+            
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
+            
+            const link = document.createElement('a');
+            link.href = zipUrl;
+            link.setAttribute('download', `${baseName}_split.zip`);
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(zipUrl); }, 5000);
           }
-
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 85 } : f));
-
-          const zipBlob = await zip.generateAsync({ type: 'blob' });
-          const zipUrl = URL.createObjectURL(zipBlob);
-          
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download' } : f));
-          
-          const link = document.createElement('a');
-          link.href = zipUrl;
-          link.setAttribute('download', `${baseName}_split.zip`);
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(zipUrl); }, 5000);
           
           return;
         } catch (err: any) {
@@ -1445,134 +1584,197 @@ export default function Home() {
                     Filtered by: {activeCategory}
                   </h4>
                   <div className="file-list">
-                    {files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length === 0 ? (
-                      <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No files uploaded yet</div>
-                    ) : (
-                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).map((file, index) => (
-                        <div
-                          key={index}
-                          className="file-item"
-                          style={{
-                            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "white", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1rem", marginBottom: "0.5rem", boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
-                            <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
-                              {categories.find(c => c.name === activeCategory)?.icon || "📄"}
-                            </div>
-                            <div style={{ maxWidth: '120px' }}>
-                              <div style={{ fontWeight: 600, fontSize: "0.85rem", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                              <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{file.size} KB</div>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'Convert to:'}</span>
-                            <select 
-                              value={file.targetFormat || displayFormats[0] || 'PDF'}
-                              onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
-                              disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
-                              style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: (file.removeBg || displayFormats.length <= 1) ? 0.7 : 1, cursor: displayFormats.length <= 1 ? 'not-allowed' : 'pointer' }}
-                            >
-                              {displayFormats.map(fmt => (
-                                <option key={fmt} value={fmt}>{fmt}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {activeCategory === 'Images' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={!!file.removeBg} 
-                                  onChange={() => toggleRemoveBg(files.indexOf(file))}
-                                  disabled={file.status !== 'idle'}
-                                />
-                                AI Remove BG
-                              </label>
-                            </div>
-                          )}
-
-                          <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#F1F5F9", height: "4px", borderRadius: "2px", position: "relative", overflow: "hidden" }}>
-                            <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {activeDocumentTool !== 'merge' && (
-                              <button
-                                className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
-                                style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? primaryBg : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B', border: 'none' }}
-                                onClick={() => {
-                                  if (file.status === "idle") {
-                                    handleConversion(files.indexOf(file));
-                                  } else if (file.status === "download") {
-                                    const link = document.createElement('a');
-                                    link.href = file.resultUrl || "#";
-                                    link.setAttribute('download', file.name.replace(/\.docx?$/i, '.pdf'));
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }
-                                }}
-                              >
-                                {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Download"}
-                              </button>
-                            )}
-                            {file.status === 'download' && file.resultUrl && (
-                              <button
-                                onClick={() => setDocPreview({
-                                  isOpen: true,
-                                  fileName: file.name.replace(/\.docx?$/i, '.pdf'),
-                                  contentTitle: "Conversion Result",
-                                  contentBody: "Your document has been converted successfully.",
-                                  downloadUrl: file.resultUrl,
-                                  isPdf: true
-                                })}
-                                style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.6rem', fontSize: '0.8rem', fontWeight: 600 }}
-                              >
-                                Preview
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleDeleteFile(files.indexOf(file))}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
-                              title="Remove file"
-                            >
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
-
-                            {activeDocumentTool === 'merge' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '0.5rem' }}>
+                    {(activeDocumentTool === 'split' && files.some(f => f.file?.type === 'application/pdf')) ? (
+                      <div className="visual-organizer" style={{ marginBottom: '2rem' }}>
+                        {files.filter(f => f.file?.type === 'application/pdf').map(file => (
+                          <div key={file.id} className="organizer-file-block" style={{ background: '#f8fafc', borderRadius: '1.5rem', padding: '1.5rem', border: '1px solid rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                              <div>
+                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{file.name}</h4>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{organizedPages[file.id]?.length} Pages Detected</p>
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'white', padding: '0.4rem', borderRadius: '0.75rem', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', marginLeft: '0.5rem' }}>Output:</span>
                                 <button 
-                                  onClick={() => handleMoveFile(files.indexOf(file), 'up')}
-                                  disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0}
-                                  style={{ 
-                                    background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
-                                    cursor: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 'not-allowed' : 'pointer', 
-                                    opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 0.3 : 1 
-                                  }}
-                                  title="Move Up"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                                </button>
+                                  onClick={() => setSplitMode('single')}
+                                  style={{ padding: '0.35rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', background: splitMode === 'single' ? 'var(--primary)' : 'transparent', color: splitMode === 'single' ? 'white' : '#64748B', fontWeight: 600 }}
+                                >Single PDF</button>
                                 <button 
-                                  onClick={() => handleMoveFile(files.indexOf(file), 'down')}
-                                  disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1}
-                                  style={{ 
-                                    background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
-                                    cursor: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 'not-allowed' : 'pointer', 
-                                    opacity: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 0.3 : 1 
-                                  }}
-                                  title="Move Down"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                </button>
+                                  onClick={() => setSplitMode('zip')}
+                                  style={{ padding: '0.35rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', background: splitMode === 'zip' ? 'var(--primary)' : 'transparent', color: splitMode === 'zip' ? 'white' : '#64748B', fontWeight: 600 }}
+                                >ZIP of Pages</button>
+                              </div>
+                            </div>
+
+                            {isGeneratingThumbnails[file.id] ? (
+                              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                <div className="dl-spinner" style={{ margin: '0 auto 1rem' }}></div>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Analyzing PDF pages...</p>
+                              </div>
+                            ) : (
+                              <div className="pages-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                                {organizedPages[file.id]?.map((page, pIdx) => (
+                                  <div key={page.id} style={{ position: 'relative', background: 'white', borderRadius: '1rem', padding: '0.5rem', border: '1px solid rgba(0,0,0,0.08)', opacity: page.deleted ? 0.4 : 1, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                    <div style={{ aspectRatio: '1/1.4', background: '#f1f5f9', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '0.5rem', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                      <img src={page.thumbnail} alt={`Page ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
+                                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8' }}>#{pIdx + 1}</span>
+                                      <div style={{ display: 'flex', gap: '2px' }}>
+                                        <button onClick={() => handleMoveOrganizedPage(file.id, page.id, 'left')} disabled={pIdx === 0} style={{ padding: '0.2rem', background: '#f8fafc', border: 'none', borderRadius: '4px', cursor: pIdx === 0 ? 'not-allowed' : 'pointer', opacity: pIdx === 0 ? 0.3 : 1 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                        <button onClick={() => handleMoveOrganizedPage(file.id, page.id, 'right')} disabled={pIdx === organizedPages[file.id].length - 1} style={{ padding: '0.2rem', background: '#f8fafc', border: 'none', borderRadius: '4px', cursor: pIdx === organizedPages[file.id].length - 1 ? 'not-allowed' : 'pointer', opacity: pIdx === organizedPages[file.id].length - 1 ? 0.3 : 1 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                        <button onClick={() => handleDeleteOrganizedPage(file.id, page.id)} style={{ padding: '0.2rem', background: page.deleted ? '#fee2e2' : '#f8fafc', color: page.deleted ? '#ef4444' : '#94a3b8', border: 'none', borderRadius: '4px', cursor: 'pointer' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+                                      </div>
+                                    </div>
+                                    {page.deleted && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-15deg)', background: '#ef4444', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' }}>Removed</div>}
+                                  </div>
+                                ))}
                               </div>
                             )}
+
+                            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                              <button 
+                                onClick={() => handleConversion(files.indexOf(file))}
+                                disabled={file.status === 'converting' || isGeneratingThumbnails[file.id]}
+                                className="btn-primary gradient-btn"
+                                style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', width: '100%', maxWidth: '300px' }}
+                              >
+                                {file.status === 'converting' ? 'Processing...' : `Download ${splitMode === 'single' ? 'Organized PDF' : 'Pages as ZIP'}`}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
+                    ) : (
+                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length === 0 ? (
+                        <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No files uploaded yet</div>
+                      ) : (
+                        files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).map((file, index) => (
+                          <div
+                            key={index}
+                            className="file-item"
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "white", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1rem", marginBottom: "0.5rem", boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+                              <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
+                                {categories.find(c => c.name === activeCategory)?.icon || "📄"}
+                              </div>
+                              <div style={{ maxWidth: '120px' }}>
+                                <div style={{ fontWeight: 600, fontSize: "0.85rem", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{file.size} KB</div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'Convert to:'}</span>
+                              <select 
+                                value={file.targetFormat || displayFormats[0] || 'PDF'}
+                                onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
+                                disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
+                                style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: (file.removeBg || displayFormats.length <= 1) ? 0.7 : 1, cursor: displayFormats.length <= 1 ? 'not-allowed' : 'pointer' }}
+                              >
+                                {displayFormats.map(fmt => (
+                                  <option key={fmt} value={fmt}>{fmt}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {activeCategory === 'Images' && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={!!file.removeBg} 
+                                    onChange={() => toggleRemoveBg(files.indexOf(file))}
+                                    disabled={file.status !== 'idle'}
+                                  />
+                                  AI Remove BG
+                                </label>
+                              </div>
+                            )}
+
+                            <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#F1F5F9", height: "4px", borderRadius: "2px", position: "relative", overflow: "hidden" }}>
+                              <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {activeDocumentTool !== 'merge' && (
+                                <button
+                                  className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
+                                  style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? primaryBg : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B', border: 'none' }}
+                                  onClick={() => {
+                                    if (file.status === "idle") {
+                                      handleConversion(files.indexOf(file));
+                                    } else if (file.status === "download") {
+                                      const link = document.createElement('a');
+                                      link.href = file.resultUrl || "#";
+                                      link.setAttribute('download', file.name.replace(/\.docx?$/i, '.pdf'));
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }
+                                  }}
+                                >
+                                  {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Download"}
+                                </button>
+                              )}
+                              {file.status === 'download' && file.resultUrl && (
+                                <button
+                                  onClick={() => setDocPreview({
+                                    isOpen: true,
+                                    fileName: file.name.replace(/\.docx?$/i, '.pdf'),
+                                    contentTitle: "Conversion Result",
+                                    contentBody: "Your document has been converted successfully.",
+                                    downloadUrl: file.resultUrl,
+                                    isPdf: true
+                                  })}
+                                  style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.6rem', fontSize: '0.8rem', fontWeight: 600 }}
+                                >
+                                  Preview
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteFile(files.indexOf(file))}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                                title="Remove file"
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                              </button>
+
+                              {activeDocumentTool === 'merge' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '0.5rem' }}>
+                                  <button 
+                                    onClick={() => handleMoveFile(files.indexOf(file), 'up')}
+                                    disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0}
+                                    style={{ 
+                                      background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
+                                      cursor: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 'not-allowed' : 'pointer', 
+                                      opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 0.3 : 1 
+                                    }}
+                                    title="Move Up"
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleMoveFile(files.indexOf(file), 'down')}
+                                    disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1}
+                                    style={{ 
+                                      background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
+                                      cursor: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 'not-allowed' : 'pointer', 
+                                      opacity: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 0.3 : 1 
+                                    }}
+                                    title="Move Down"
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )
                     )}
                   </div>
                   {activeDocumentTool === 'merge' && (
