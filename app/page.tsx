@@ -9,9 +9,16 @@ if (typeof window === 'undefined') {
 
 import { useEffect, useState, useRef } from "react";
 import gsap from "gsap";
-import { removeBackground } from "@imgly/background-removal";
 import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
+import mammoth from "mammoth";
+import dynamic from "next/dynamic";
+
+const ReactQuill = dynamic(() => import("react-quill-new"), { 
+  ssr: false,
+  loading: () => <div className="h-96 w-full animate-pulse bg-gray-100 rounded-xl" />
+});
+import "react-quill-new/dist/quill.snow.css";
 
 // Set up PDF.js worker dynamically in client
 let pdfjsLib: any = null;
@@ -45,6 +52,21 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [splitMode, setSplitMode] = useState<'single' | 'zip'>('single');
+  const [editModal, setEditModal] = useState<{ 
+    isOpen: boolean; 
+    initialHtml: string; 
+    currentHtml: string; 
+    fileId: string; 
+    fileName: string;
+    isSaving: boolean;
+  }>({
+    isOpen: false,
+    initialHtml: "",
+    currentHtml: "",
+    fileId: "",
+    fileName: "",
+    isSaving: false
+  });
 
 
   // Download section state
@@ -189,6 +211,71 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+      ['link', 'image'],
+      ['clean']
+    ],
+  };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike', 'blockquote',
+    'list', 'bullet', 'indent',
+    'link', 'image'
+  ];
+
+  const handleSaveEdit = async () => {
+    if (!editModal.fileId) return;
+    
+    setEditModal(prev => ({ ...prev, isSaving: true }));
+    
+    try {
+      const response = await fetch('/api/html-to-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          html: editModal.currentHtml,
+          fileName: editModal.fileName
+        }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const downloadId = data.downloadId;
+      const downloadUrl = `/api/download-file?id=${downloadId}`;
+      const newName = data.fileName;
+
+      // Close modal and reset saving state
+      setEditModal(prev => ({ ...prev, isOpen: false, isSaving: false }));
+      
+      // Update file status in the list
+      setFiles(prev => prev.map(f => f.id === editModal.fileId ? { ...f, status: 'download', resultUrl: downloadUrl, progress: 100 } : f));
+
+      // Trigger automatic download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', newName); 
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (err: any) {
+      console.error("Save Edit Error:", err);
+      alert('Failed to save changes and generate PDF: ' + err.message);
+      setEditModal(prev => ({ ...prev, isSaving: false }));
+    }
+  };
+
   const handleFiles = (incomingFiles: FileList | null) => {
     if (!incomingFiles) return;
     const newFiles = Array.from(incomingFiles).map((file) => ({
@@ -316,6 +403,9 @@ export default function Home() {
       );
 
       try {
+        // Dynamic import to prevent SSR issues and only load when needed
+        const { removeBackground } = await import("@imgly/background-removal");
+
         // Run AI background removal on the client
         const resultBlob = await removeBackground(fileItem.file, {
           model: 'isnet_quint8',
@@ -762,6 +852,57 @@ export default function Home() {
         } catch (err: any) {
           console.error("PDF to Word Error:", err);
           alert('Failed to convert PDF to Word: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'edit') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          // Step 1: PDF to DOCX via ConvertAPI
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+          
+          const response = await fetch('/api/pdf-to-docx', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 60 } : f));
+
+          const docxBlob = await response.blob();
+          const arrayBuffer = await docxBlob.arrayBuffer();
+
+          // Step 2: DOCX to HTML via Mammoth (Client-side)
+          const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+          const html = result.value;
+
+          // Add some basic styling to the HTML for better editing experience
+          const styledHtml = `<div style="font-family: Arial, sans-serif; line-height: 1.6;">${html}</div>`;
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: "idle" } : f));
+
+          // Step 3: Open Editor Modal
+          setEditModal({
+            isOpen: true,
+            initialHtml: styledHtml,
+            currentHtml: styledHtml,
+            fileId: fileItem.id,
+            fileName: fileItem.name,
+            isSaving: false
+          });
+
+          return;
+        } catch (err: any) {
+          console.error("PDF Edit Preparation Error:", err);
+          alert('Failed to prepare PDF for editing: ' + err.message);
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
           return;
         }
@@ -1943,6 +2084,70 @@ export default function Home() {
                 Close Preview
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Edit PDF Modal */}
+      {editModal.isOpen && (
+        <div className="preview-modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="preview-modal-card" style={{ maxWidth: '1000px', width: '95%', height: '90vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.2rem' }}>Edit PDF Resources</h2>
+                <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Editing: <strong>{editModal.fileName}</strong></p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button 
+                  onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
+                  style={{ padding: '0.6rem 1.2rem', borderRadius: '0.8rem', border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveEdit}
+                  disabled={editModal.isSaving}
+                  className="btn-primary gradient-btn"
+                  style={{ 
+                    padding: '0.6rem 1.5rem', 
+                    borderRadius: '0.8rem', 
+                    fontWeight: 600, 
+                    minWidth: '160px', 
+                    opacity: editModal.isSaving ? 0.7 : 1,
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' 
+                  }}
+                >
+                  {editModal.isSaving ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                      <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                      Saving PDF...
+                    </span>
+                  ) : 'Update & Download'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ 
+              flex: 1, 
+              overflow: 'hidden', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '1.2rem', 
+              background: 'white',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+            }} className="custom-quill-container">
+              <ReactQuill 
+                theme="snow"
+                value={editModal.currentHtml}
+                onChange={(content) => setEditModal(prev => ({ ...prev, currentHtml: content }))}
+                modules={quillModules}
+                formats={quillFormats}
+                style={{ height: 'calc(100% - 42px)' }}
+              />
+            </div>
+            
+            <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Standard formatting is preserved. Complex layouts like floating objects or custom positions may shift.
+            </p>
           </div>
         </div>
       )}

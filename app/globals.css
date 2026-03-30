@@ -778,3 +778,35 @@ body {
         height: 200px;
     }
 }
+
+/* Custom Quill Editor Styles */
+.custom-quill-container .ql-toolbar.ql-snow {
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    background: #f8fafc;
+    padding: 0.75rem 1rem !important;
+}
+
+.custom-quill-container .ql-container.ql-snow {
+    border: none !important;
+    font-family: "Plus Jakarta Sans", sans-serif !important;
+    font-size: 1rem !important;
+}
+
+.custom-quill-container .ql-editor {
+    padding: 2.5rem !important;
+    min-height: 100%;
+}
+
+.custom-quill-container .ql-editor p {
+    margin-bottom: 1rem;
+}
+
+/* Spinner for buttons */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
