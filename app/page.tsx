@@ -857,6 +857,67 @@ export default function Home() {
         }
       }
 
+      if (activeDocumentTool === 'pdf-to-ppt') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/pdf-to-pptx', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const base64Content = data.base64;
+          const dataUrl = `data:${data.contentType};base64,${base64Content}`;
+          const newName = data.fileName;
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
+
+          // Trigger preview Success modal
+          setDocPreview({
+            isOpen: true,
+            fileName: newName,
+            contentTitle: "PDF to PowerPoint Conversion Success",
+            contentBody: "Your presentation is ready! Your slides have been accurately reconstructed from the PDF layers.",
+            downloadUrl: dataUrl,
+            vaultUrl: downloadUrl,
+            isPdf: false
+          });
+
+          // Trigger automatic download
+          setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
+          return;
+
+        } catch (err: any) {
+          console.error("PDF to PowerPoint Error:", err);
+          alert('Failed to convert PDF to PowerPoint: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
       if (activeDocumentTool === 'edit') {
         try {
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
