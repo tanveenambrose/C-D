@@ -36,13 +36,19 @@ const pdfTools = [
   { id: 'jpg-to-pdf', title: 'JPG to PDF', desc: 'Convert JPG images to PDF in seconds. Easily adjust orientation and margins.', color: '#E2574C', accept: '.jpg,.jpeg,.png,.webp', uploadTitle: 'Select Images', buttonText: 'Select Images', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
   { id: 'edit', title: 'Edit PDF', desc: 'Add text, images, shapes or freehand annotations to a PDF document. Edit the size, font, and color.', color: '#9C27B0', accept: '.pdf', uploadTitle: 'Select PDF to edit', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> },
   { id: 'watermark', title: 'Watermark', desc: 'Stamp an image or text over your PDF in seconds.', color: '#5C5C5C', accept: '.pdf', uploadTitle: 'Select PDF to watermark', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg> },
-  { id: 'protect', title: 'Protect PDF', desc: 'Encrypt PDF documents with a password to prevent unauthorized access.', color: '#00BCD4', accept: '.pdf', uploadTitle: 'Select PDF to encrypt', buttonText: 'Select PDF', formats: ['PDF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
+];
+
+// Image Tools List (Background removal, format conversion, etc.)
+const imageTools = [
+  { id: 'remove-bg', title: 'Remove Background', desc: 'Remove image backgrounds automatically in 5 seconds with just one click.', color: '#FF3366', accept: 'image/*', uploadTitle: 'Select Image to Remove Background', buttonText: 'Select Image', formats: ['PNG (Transparent)'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> },
+  { id: 'convert', title: 'Convert Format', desc: 'Convert your images to WEBP, PNG, JPG or GIF in seconds.', color: '#F18F2E', accept: 'image/*', uploadTitle: 'Select Image to Convert', buttonText: 'Select Image', formats: ['WEBP', 'PNG', 'JPG', 'GIF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> },
 ];
 
 export default function Home() {
   const [files, setFiles] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("Download");
   const [activeDocumentTool, setActiveDocumentTool] = useState<string | null>(null);
+  const [activeImageTool, setActiveImageTool] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
@@ -67,6 +73,7 @@ export default function Home() {
     fileName: "",
     isSaving: false
   });
+  const [removalEngine, setRemovalEngine] = useState<'standard' | 'ultra'>('standard');
 
 
   // Download section state
@@ -81,6 +88,8 @@ export default function Home() {
   const heroTextRef = useRef(null);
   const converterWrapperRef = useRef(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasLoadedContentRef = useRef(false);
 
   const categories = [
     { 
@@ -211,6 +220,134 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
+  // Visual Editor High-Fidelity Initialization
+  useEffect(() => {
+    if (editModal.isOpen && editModal.initialHtml && iframeRef.current) {
+        const iframe = iframeRef.current;
+        const doc = iframe.contentDocument;
+        if (doc) {
+            console.log("Visual Editor: Activating aggressive universal unlocker for PDF editing");
+            
+            // AGGRESSIVE CSS OVERRIDE: Global text unlocking and layer re-ordering
+            const interactionStyles = `
+                <style>
+                    * { box-sizing: border-box; }
+
+                    /* 1. Mandatory Text Selection: Force text to be selectable everywhere */
+                    body, div, span, p, a, h1, h2, h3, h4, h5, h6 { 
+                        user-select: text !important; 
+                        -webkit-user-select: text !important;
+                        pointer-events: auto !important;
+                        z-index: 100 !important; /* Move text layers forward */
+                    }
+
+                    /* 2. Background Re-ordering: Ensure images/SVGs dont block cursor */
+                    img, svg, canvas, [class*="bg"], [id*="bg"], [style*="z-index:-"], .background-layer { 
+                        pointer-events: none !important; 
+                        user-select: none !important;
+                        z-index: 1 !important; /* Move background layers back */
+                    }
+                    
+                    /* 3. Text Marker: Cursor styles and basic interaction */
+                    [contenteditable="true"] {
+                        outline: none !important;
+                        cursor: text !important;
+                        min-width: 1ch;
+                        transition: background 0.1s;
+                        display: inline-block; /* Ensure they have a box for clicking */
+                    }
+
+                    /* 4. Visual "Field" Indicator: Show what is editable on hover */
+                    [contenteditable="true"]:hover {
+                        background: rgba(99, 102, 241, 0.05) !important;
+                        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2) !important;
+                    }
+
+                    [contenteditable="true"]:focus {
+                        background: rgba(99, 102, 241, 0.1) !important;
+                        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4) !important;
+                    }
+
+                    /* Maintain PDF Aspect Ratio & Scale */
+                    html, body {
+                        background: #f1f5f9 !important;
+                        margin: 0 !important;
+                        padding: 20px !important;
+                        height: auto !important;
+                        width: auto !important;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
+                    
+                    /* The main container from ConvertAPI usually has absolute elements */
+                    #page-container, .pf, .document-container, [id^="page"] {
+                        background: white !important;
+                        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15) !important;
+                        position: relative !important;
+                        pointer-events: auto !important;
+                        margin-bottom: 20px !important;
+                        z-index: 50 !important;
+                    }
+                </style>
+            `;
+
+            const headIndex = editModal.initialHtml.indexOf('</head>');
+            let finalHtml = editModal.initialHtml;
+            if (headIndex !== -1) {
+                finalHtml = finalHtml.slice(0, headIndex) + interactionStyles + finalHtml.slice(headIndex);
+            } else {
+                finalHtml = interactionStyles + finalHtml;
+            }
+
+            doc.open();
+            doc.write(finalHtml);
+            doc.close();
+            
+            // AGGRESSIVE UNIVERSAL UNLOCKER: Search for every single element containing text and make it editable
+            const unlockAllText = () => {
+                const elements = doc.querySelectorAll('body *:not(script):not(style):not(img):not(svg)');
+                elements.forEach(node => {
+                    const el = node as HTMLElement;
+                    
+                    // Logic: If the element has direct text content, it should be editable
+                    let hasText = false;
+                    for (let i = 0; i < el.childNodes.length; i++) {
+                        if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent?.trim()) {
+                            hasText = true;
+                            break;
+                        }
+                    }
+
+                    if (hasText) {
+                        el.contentEditable = "true";
+                        el.style.pointerEvents = "auto";
+                        el.style.position = el.style.position || 'relative';
+                        el.setAttribute('spellcheck', 'false');
+                    }
+                });
+                
+                // Backup browser edit mode
+                if (doc.designMode !== 'on') {
+                    doc.designMode = 'on';
+                }
+            };
+            
+            // Execute multiple times and periodically to ensure stability against late-rendering elements
+            unlockAllText();
+            const timer1 = setTimeout(unlockAllText, 500);
+            const timer2 = setTimeout(unlockAllText, 1500);
+            const interval = setInterval(unlockAllText, 3000);
+
+            return () => {
+              clearTimeout(timer1);
+              clearTimeout(timer2);
+              clearInterval(interval);
+            };
+        }
+    }
+  }, [editModal.isOpen, editModal.initialHtml]);
+
   const quillModules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
@@ -224,23 +361,65 @@ export default function Home() {
   const quillFormats = [
     'header',
     'bold', 'italic', 'underline', 'strike', 'blockquote',
-    'list', 'bullet', 'indent',
+    'list', 'indent',
     'link', 'image'
   ];
 
   const handleSaveEdit = async () => {
     if (!editModal.fileId) return;
     
-    setEditModal(prev => ({ ...prev, isSaving: true }));
+    // Capture and CLEAN final HTML from IFrame before saving
+    let finalHtml = editModal.currentHtml;
+    const iframe = iframeRef.current;
+    if (iframe?.contentDocument) {
+      // 1. Surgical Extraction: Capture ONLY the central content, avoiding browser headers
+      const body = iframe.contentDocument.body;
+      const head = iframe.contentDocument.head;
+      
+      // Clone head to preserve original document-specific styles
+      const headClone = head.cloneNode(true) as HTMLElement;
+      
+      // Remove our Editor UI helper styles from the clone
+      const styleEl = headClone.querySelector('#paper-styles');
+      if (styleEl) styleEl.remove();
+
+      // Clean the Body: Standardize for Word-based reconstruction
+      const cleanContent = body.innerHTML;
+      
+      // Construct a GUARANTEED clean HTML5 document for the server
+      finalHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title></title> 
+            ${headClone.innerHTML}
+            <style>
+               /* Fidelity Reset: Remove editor background noise */
+               body { 
+                 margin: 0 !important; 
+                 padding: 0 !important; 
+                 background: white !important; 
+               }
+            </style>
+          </head>
+          <body>
+            ${cleanContent}
+          </body>
+        </html>
+      `;
+    }
+
+    setEditModal(prev => ({ ...prev, isSaving: true, currentHtml: finalHtml }));
     
     try {
-      const response = await fetch('/api/html-to-pdf', {
+      const response = await fetch('/api/save-word-edit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          html: editModal.currentHtml,
+          html: finalHtml,
           fileName: editModal.fileName
         }),
       });
@@ -278,17 +457,23 @@ export default function Home() {
 
   const handleFiles = (incomingFiles: FileList | null) => {
     if (!incomingFiles) return;
-    const newFiles = Array.from(incomingFiles).map((file) => ({
-      id: Math.random().toString(36).substr(2, 9), // Unique ID for state tracking
-      file: file, // Store the actual file object
-      name: file.name,
-      size: (file.size / 1024).toFixed(1),
-      progress: 0,
-      status: "idle",
-      type: activeCategory,
-      documentTool: activeCategory === 'Documents' ? activeDocumentTool : null,
-      targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : (activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.formats[0] : 'PDF') || 'PDF'
-    }));
+    const newFiles: any[] = [];
+    Array.from(incomingFiles).forEach((f) => {
+        const newFile = {
+            id: Math.random().toString(36).substr(2, 9),
+            file: f,
+            name: f.name,
+            size: f.size,
+            type: activeCategory,
+            status: "idle",
+            progress: 0,
+            documentTool: activeCategory === 'Documents' ? activeDocumentTool : null,
+            imageTool: activeCategory === 'Images' ? activeImageTool : null,
+            uploadTime: new Date().toLocaleTimeString(),
+            targetFormat: activeCategory === 'Images' ? 'PNG' : activeCategory === 'Video' ? 'MP4' : (activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.formats[0] : 'PDF') || 'PDF'
+        };
+        newFiles.push(newFile);
+    });
     
     // Trigger thumbnail generation for Split tool
     if (activeDocumentTool === 'split') {
@@ -390,6 +575,54 @@ export default function Home() {
       [pages[index], pages[newIndex]] = [pages[newIndex], pages[index]];
       return { ...prev, [fileId]: pages };
     });
+  };
+
+  const simulateSimulation = (index: number) => {
+    // Capture file info immediately (before any async state updates) to avoid stale closure inside setInterval
+    const fileItem = files[index];
+    const ext = fileItem?.targetFormat?.toLowerCase() || fileItem?.name?.split('.').pop()?.toLowerCase() || 'bin';
+    const newName = (fileItem?.name?.split('.')[0] || 'file') + '_simulated.' + ext;
+
+    setFiles((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, status: "converting" } : f))
+    );
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(interval);
+        
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: newName } : f))
+        );
+
+        let dummyContent = `This is a simulated ${ext.toUpperCase()} output file.\nDeep document parsing requires a backend API.`;
+        let mimeType = 'text/plain';
+
+        if (['doc', 'docx'].includes(ext)) {
+           dummyContent = `<html><body style="font-family: Arial, sans-serif; padding: 40px;"><h2>Simulated PDF to Word Conversion</h2><p>This is a simulated DOC output for <b>${fileItem?.name}</b>.</p></body></html>`;
+           mimeType = 'application/msword';
+        } else if (['xls', 'xlsx'].includes(ext)) {
+           dummyContent = `<html><body><table><tr><th>Simulated Excel Conversion</th></tr><tr><td>File: ${fileItem?.name}</td></tr></table></body></html>`;
+           mimeType = 'application/vnd.ms-excel';
+        }
+
+        const blob = new Blob([dummyContent], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', newName);
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
+      } else {
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, progress } : f))
+        );
+      }
+    }, 100);
   };
 
   const handleConversion = async (index: number) => {
@@ -918,15 +1151,16 @@ export default function Home() {
         }
       }
 
-      if (activeDocumentTool === 'edit') {
+      if (activeDocumentTool === 'pdf-to-excel') {
         try {
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
-          
-          // Step 1: PDF to DOCX via ConvertAPI
+
           const formData = new FormData();
           formData.append('file', fileItem.file, fileItem.name);
-          
-          const response = await fetch('/api/pdf-to-docx', {
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/pdf-to-xlsx', {
             method: 'POST',
             body: formData,
           });
@@ -936,25 +1170,80 @@ export default function Home() {
             throw new Error(errJson.error || `Server error: ${response.status}`);
           }
 
-          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 60 } : f));
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
 
-          const docxBlob = await response.blob();
-          const arrayBuffer = await docxBlob.arrayBuffer();
+          const data = await response.json();
+          const base64Content = data.base64;
+          const dataUrl = `data:${data.contentType};base64,${base64Content}`;
+          const newName = data.fileName;
+          const downloadId = data.downloadId;
+          const downloadUrl = `/api/download-file?id=${downloadId}`;
 
-          // Step 2: DOCX to HTML via Mammoth (Client-side)
-          const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-          const html = result.value;
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: downloadUrl } : f));
 
-          // Add some basic styling to the HTML for better editing experience
-          const styledHtml = `<div style="font-family: Arial, sans-serif; line-height: 1.6;">${html}</div>`;
+          // Trigger preview Success modal
+          setDocPreview({
+            isOpen: true,
+            fileName: newName,
+            contentTitle: "PDF to Excel Conversion Success",
+            contentBody: "Your spreadsheet is ready! All tables have been accurately extracted from the PDF.",
+            downloadUrl: dataUrl,
+            vaultUrl: downloadUrl,
+            isPdf: false
+          });
+
+          // Trigger automatic download
+          setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', newName); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
+          return;
+
+        } catch (err: any) {
+          console.error("PDF to Excel Error:", err);
+          alert('Failed to convert PDF to Excel: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+      }
+
+      if (activeDocumentTool === 'edit') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          // Step 1: High-Fidelity PDF to Editable HTML via Word Reconstruction
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+          const response = await fetch('/api/pdf-to-editable-html', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          const data = await response.json();
+          const editableWordHtml = data.html;
 
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: "idle" } : f));
 
-          // Step 3: Open Editor Modal
+          // Step 2: Open High-Fidelity Word-Based Editor Modal
           setEditModal({
             isOpen: true,
-            initialHtml: styledHtml,
-            currentHtml: styledHtml,
+            initialHtml: editableWordHtml,
+            currentHtml: editableWordHtml,
             fileId: fileItem.id,
             fileName: fileItem.name,
             isSaving: false
@@ -962,7 +1251,7 @@ export default function Home() {
 
           return;
         } catch (err: any) {
-          console.error("PDF Edit Preparation Error:", err);
+          console.error("Word-Based PDF Preparation Error:", err);
           alert('Failed to prepare PDF for editing: ' + err.message);
           setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
           return;
@@ -1020,6 +1309,77 @@ export default function Home() {
       return;
     }
 
+    // Image active tool logic (Remove Background)
+    if (fileItem.type === 'Images' && activeImageTool === 'remove-bg') {
+        try {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 20 } : f));
+          
+          let resultUrl = "";
+          let originalUrl = URL.createObjectURL(fileItem.file);
+
+          if (removalEngine === 'standard') {
+            // FAST FREE AI (Client-side WASM)
+            const { removeBackground } = await import('@imgly/background-removal');
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 40 } : f));
+            
+            const blob = await removeBackground(fileItem.file, {
+              publicPath: "https://static.img.ly/packages/@imgly/background-removal/1.7.0/dist/",
+              model: "isnet_fp16",
+              progress: (stage: string, p: number) => {
+                console.log(`Removal Progress [${stage}]: ${p}`);
+                setFiles(prev => prev.map((f, idx) => idx === index ? { ...f, progress: 40 + Math.floor(p * 50) } : f));
+              }
+            } as any);
+            resultUrl = URL.createObjectURL(blob);
+          } else {
+            // ULTRA CLOUD AI (Server-side API)
+            const formData = new FormData();
+            formData.append('image_file', fileItem.file);
+            
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 50 } : f));
+
+            const response = await fetch('/api/remove-bg', {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errJson = await response.json().catch(() => ({}));
+              throw new Error(errJson.error || `Server error: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            resultUrl = URL.createObjectURL(blob);
+          }
+
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl: resultUrl } : f));
+
+          // Step 2: Show Special AI Preview Modal
+          setPreviewData({
+            original: originalUrl,
+            result: resultUrl,
+            isOpen: true
+          });
+
+          // Trigger automatic download
+          setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = resultUrl;
+            link.setAttribute('download', fileItem.name.split('.')[0] + '_no_bg.png'); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, 800);
+
+          return;
+        } catch (err: any) {
+          console.error("Background Removal Error:", err);
+          alert('Failed to remove background: ' + err.message);
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+          return;
+        }
+    }
+
     // Standard fallback logic
     if (fileItem.type !== 'Images') {
       simulateSimulation(index);
@@ -1074,53 +1434,7 @@ export default function Home() {
     }
   };
 
-  const simulateSimulation = (index: number) => {
-    // Capture file info immediately (before any async state updates) to avoid stale closure inside setInterval
-    const fileItem = files[index];
-    const ext = fileItem?.targetFormat?.toLowerCase() || fileItem?.name?.split('.').pop()?.toLowerCase() || 'bin';
-    const newName = (fileItem?.name?.split('.')[0] || 'file') + '_simulated.' + ext;
 
-    setFiles((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, status: "converting" } : f))
-    );
-
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        
-        setFiles((prev) =>
-          prev.map((f, i) => (i === index ? { ...f, progress: 100, status: "download", name: newName } : f))
-        );
-
-        let dummyContent = `This is a simulated ${ext.toUpperCase()} output file.\nDeep document parsing requires a backend API.`;
-        let mimeType = 'text/plain';
-
-        if (['doc', 'docx'].includes(ext)) {
-           dummyContent = `<html><body style="font-family: Arial, sans-serif; padding: 40px;"><h2>Simulated PDF to Word Conversion</h2><p>This is a simulated DOC output for <b>${fileItem?.name}</b>.</p></body></html>`;
-           mimeType = 'application/msword';
-        } else if (['xls', 'xlsx'].includes(ext)) {
-           dummyContent = `<html><body><table><tr><th>Simulated Excel Conversion</th></tr><tr><td>File: ${fileItem?.name}</td></tr></table></body></html>`;
-           mimeType = 'application/vnd.ms-excel';
-        }
-
-        const blob = new Blob([dummyContent], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', newName);
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 5000);
-      } else {
-        setFiles((prev) =>
-          prev.map((f, i) => (i === index ? { ...f, progress } : f))
-        );
-      }
-    }, 100);
-  };
 
   const handleCompressAllPdfs = async () => {
     const docs = files.filter(f => f.type === 'Documents' && f.documentTool === 'compress');
@@ -1343,7 +1657,7 @@ export default function Home() {
     const params = new URLSearchParams({
       url: directUrl,
     });
-    // Appending filename to the URL path ensures browsers save it with the correct extension
+// Appending filename to the URL path ensures browsers save it with the correct extension
     return `/api/proxy-download/${encodeURIComponent(filename)}?${params.toString()}`;
   };
 
@@ -1355,14 +1669,17 @@ export default function Home() {
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, removeBg: !f.removeBg } : f));
   };
 
-  const activeToolData = activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool) : null;
+  const activeToolData = activeDocumentTool 
+    ? pdfTools.find(t => t.id === activeDocumentTool) 
+    : (activeImageTool ? imageTools.find(t => t.id === activeImageTool) : null);
+    
   const currentCategory = categories.find(c => c.name === activeCategory);
   const displayTitle = activeToolData?.uploadTitle || currentCategory?.uploadTitle || `Upload ${activeCategory}`;
-  const displayDesc = activeToolData?.desc || currentCategory?.uploadDesc;
-  const displayAccept = activeToolData?.accept || currentCategory?.accept;
-  const displayButtonText = activeToolData?.buttonText || currentCategory?.buttonText || `Upload ${activeCategory}`;
+  const displayDesc = activeToolData?.desc || currentCategory?.uploadDesc || `Process your ${activeCategory.toLowerCase()} files`;
+  const displayAccept = activeToolData?.accept || currentCategory?.accept || "*/*";
+  const displayButtonText = activeToolData?.buttonText || currentCategory?.buttonText || `Select ${activeCategory}`;
   const displayFormats = activeToolData?.formats || currentCategory?.formats || [];
-  const primaryBg = activeToolData ? activeToolData.color : (currentCategory?.gradient || 'var(--gradient)');
+  const primaryBg = activeToolData?.color || currentCategory?.gradient || "var(--primary)";
 
   return (
     <div className="app-container" suppressHydrationWarning>
@@ -1371,11 +1688,12 @@ export default function Home() {
       <div 
         className={`sidebar-backdrop ${isSidebarOpen ? 'show' : ''}`} 
         onClick={() => setIsSidebarOpen(false)}
+        suppressHydrationWarning
       ></div>
 
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
-        <div className="logo-area" style={{ marginBottom: '2.5rem' }}>
+        <div className="logo-area" style={{ marginBottom: '2.5rem' }} suppressHydrationWarning>
           <img src="/logo/C_D_logo-removebg-preview.png" alt="C&D Logo" className="logo-img" style={{ filter: 'drop-shadow(0 4px 10px rgba(99, 102, 241, 0.2))' }} />
           <h1 style={{ marginLeft: '12px' }}>C&D Flow</h1>
         </div>
@@ -1389,6 +1707,7 @@ export default function Home() {
                 e.preventDefault();
                 setActiveCategory(cat.name);
                 setActiveDocumentTool(null);
+                setActiveImageTool(null);
                 setIsSidebarOpen(false);
               }}
             >
@@ -1396,7 +1715,7 @@ export default function Home() {
             </a>
           ))}
         </nav>
-        <div className="sidebar-footer" style={{ padding: '1rem' }}>
+        <div className="sidebar-footer" style={{ padding: '1rem' }} suppressHydrationWarning>
           <div className="pro-tag" style={{ scale: '0.8', transformOrigin: 'left' }} suppressHydrationWarning>PRO</div>
           <p style={{ fontSize: '0.75rem' }}>Unlock all features</p>
           <button className="upgrade-btn" style={{ padding: '0.5rem', fontSize: '0.75rem' }}>Upgrade</button>
@@ -1406,18 +1725,18 @@ export default function Home() {
       {/* Main Content */}
       <main className="main-content">
         {/* Header */}
-        <header className="header" ref={headerRef} style={{ padding: '0.5rem 1.5rem', minHeight: '60px' }}>
-          <div className="mobile-toggle" onClick={() => setIsSidebarOpen(true)}>
+        <header className="header" ref={headerRef} style={{ padding: '0.5rem 1.5rem', minHeight: '60px' }} suppressHydrationWarning>
+          <div className="mobile-toggle" onClick={() => setIsSidebarOpen(true)} suppressHydrationWarning>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </div>
-          <div className="search-bar" style={{ maxWidth: '300px' }}>
+          <div className="search-bar" style={{ maxWidth: '300px' }} suppressHydrationWarning>
             <input type="text" placeholder="Search..." style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} />
           </div>
-          <div className="header-actions">
+          <div className="header-actions" suppressHydrationWarning>
             <a href="#" className="nav-link" style={{ fontSize: '0.85rem' }}>Pricing</a>
             <a href="#" className="nav-link" style={{ fontSize: '0.85rem' }}>FAQ</a>
             <button className="btn-outline" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Sign In</button>
@@ -1428,11 +1747,11 @@ export default function Home() {
         {/* Hero & Converter Zone */}
         <section className="hero-section">
           {activeCategory === "Download" ? (
-            <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }}>
+            <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }} suppressHydrationWarning>
               {/* Section Header */}
-              <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '36px', height: '36px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
+              <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '1rem' }} suppressHydrationWarning>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} suppressHydrationWarning>
+                  <div style={{ width: '36px', height: '36px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }} suppressHydrationWarning>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                   </div>
                   <div>
@@ -1443,9 +1762,9 @@ export default function Home() {
               </div>
 
               {/* Platform + URL Input Card */}
-              <div className="downloader-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
+              <div className="downloader-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }} suppressHydrationWarning>
                 <h4 style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem' }}>1. Select Platform:</h4>
-                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }} suppressHydrationWarning>
                   {platforms.map(p => (
                     <div
                       key={p.name}
@@ -1463,6 +1782,7 @@ export default function Home() {
                         transition: 'all 0.25s ease',
                         boxShadow: selectedPlatform === p.name ? `0 4px 16px ${p.color}22` : 'none'
                       }}
+                      suppressHydrationWarning
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '1rem', display: 'flex' }}>
@@ -1494,6 +1814,7 @@ export default function Home() {
                     padding: '0.4rem',
                     alignItems: 'center'
                   }}
+                  suppressHydrationWarning
                 >
                   <input
                     type="text"
@@ -1656,15 +1977,15 @@ export default function Home() {
               )}
 
             </div>
-          ) : activeCategory === 'Documents' && !activeDocumentTool ? (
+          ) : (activeCategory === 'Documents' && !activeDocumentTool) || (activeCategory === 'Images' && !activeImageTool) ? (
             <>
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
                 <h2 className="section-title">
-                  <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Document</span>{" "}
+                  <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{activeCategory}</span>{" "}
                   <span style={{ fontWeight: 700 }}>Studio</span>
                 </h2>
                 <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
-                  Every tool you need to work with PDFs in one place
+                  Every tool you need to work with {activeCategory.toLowerCase()} in one place
                 </p>
               </div>
 
@@ -1676,8 +1997,8 @@ export default function Home() {
                 margin: '0 auto',
                 paddingBottom: '2rem'
               }}>
-                {pdfTools.map(tool => (
-                  <div key={tool.id} onClick={() => setActiveDocumentTool(tool.id)} style={{
+                {(activeCategory === 'Documents' ? pdfTools : imageTools).map(tool => (
+                  <div key={tool.id} onClick={() => activeCategory === 'Documents' ? setActiveDocumentTool(tool.id) : setActiveImageTool(tool.id)} style={{
                     background: 'white',
                     border: '1px solid rgba(0,0,0,0.05)',
                     borderRadius: '1rem',
@@ -1703,26 +2024,26 @@ export default function Home() {
             </>
           ) : (
             <>
-              {activeDocumentTool && (
+              {(activeDocumentTool || activeImageTool) && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <button onClick={() => setActiveDocumentTool(null)} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button onClick={() => { setActiveDocumentTool(null); setActiveImageTool(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                    Back to all PDF tools
+                    Back to all {activeCategory === 'Images' ? 'Image' : 'PDF'} tools
                   </button>
                 </div>
               )}
               
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
                 <h2 className="section-title">
-                  <span style={{ color: activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.color : (activeCategory === 'Images' ? '#FF3366' : activeCategory === 'Video' ? '#3366FF' : 'var(--primary)'), fontWeight: 800 }}>
-                    {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.title.split(' ')[0] : categories.find(c => c.name === activeCategory)?.titlePrefix}
+                  <span style={{ color: primaryBg, fontWeight: 800 }}>
+                    {activeToolData?.title.split(' ')[0] || categories.find(c => c.name === activeCategory)?.titlePrefix}
                   </span>{" "}
                   <span style={{ fontWeight: 700 }}>
-                    {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.title.split(' ').slice(1).join(' ') : (categories.find(c => c.name === activeCategory)?.titleSuffix || activeCategory)}
+                    {activeToolData?.title.split(' ').slice(1).join(' ') || (categories.find(c => c.name === activeCategory)?.titleSuffix || activeCategory)}
                   </span>
                 </h2>
                 <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
-                  {activeDocumentTool ? pdfTools.find(t => t.id === activeDocumentTool)?.desc : categories.find(c => c.name === activeCategory)?.subtitle}
+                  {displayDesc}
                 </p>
               </div>
 
@@ -1761,6 +2082,46 @@ export default function Home() {
                     </div>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{displayTitle}</h3>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{displayDesc}</p>
+                    
+                    {activeImageTool === 'remove-bg' && (
+                      <div style={{
+                        display: 'flex',
+                        background: '#f1f5f9',
+                        padding: '0.4rem',
+                        borderRadius: '0.85rem',
+                        marginBottom: '1.5rem',
+                        maxWidth: '320px',
+                        margin: '0 auto 1.5rem'
+                      }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setRemovalEngine('standard'); }}
+                          style={{
+                            flex: 1, padding: '0.6rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                            background: removalEngine === 'standard' ? 'white' : 'transparent',
+                            color: removalEngine === 'standard' ? 'var(--primary)' : '#64748b',
+                            boxShadow: removalEngine === 'standard' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          Fast Free AI
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setRemovalEngine('ultra'); }}
+                          style={{
+                            flex: 1, padding: '0.6rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                            background: removalEngine === 'ultra' ? 'white' : 'transparent',
+                            color: removalEngine === 'ultra' ? '#ec4899' : '#64748b',
+                            boxShadow: removalEngine === 'ultra' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.2s',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem'
+                          }}
+                        >
+                          Ultra Cloud AI
+                          <span style={{ fontSize: '0.6rem', background: '#fce7f3', color: '#ec4899', padding: '0.1rem 0.4rem', borderRadius: '0.4rem' }}>PRO</span>
+                        </button>
+                      </div>
+                    )}
+
                     <input type="file" id="fileInput" hidden multiple ref={fileInputRef} accept={displayAccept} onChange={(e) => handleFiles(e.target.files)} />
                     
                     <button className="btn-primary" style={{ 
@@ -1848,18 +2209,19 @@ export default function Home() {
                         ))}
                       </div>
                     ) : (
-                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length === 0 ? (
+                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).length === 0 ? (
                         <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No files uploaded yet</div>
                       ) : (
-                        files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).map((file, index) => (
-                          <div
-                            key={index}
-                            className="file-item"
-                            style={{
-                              display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "white", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1rem", marginBottom: "0.5rem", boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+                        files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).map((file, index) => (
+                            <div
+                              key={index}
+                              className="file-item"
+                              style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "white", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1rem", marginBottom: "0.5rem", boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                              }}
+                              suppressHydrationWarning
+                            >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }} suppressHydrationWarning>
                               <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
                                 {categories.find(c => c.name === activeCategory)?.icon || "📄"}
                               </div>
@@ -1901,7 +2263,7 @@ export default function Home() {
                               <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} suppressHydrationWarning>
                               {activeDocumentTool !== 'merge' && (
                                 <button
                                   className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
@@ -2024,8 +2386,8 @@ export default function Home() {
 
       {/* Document Preview Modal */}
       {docPreview?.isOpen && (
-        <div className="preview-modal-overlay">
-          <div className="preview-modal-card" style={{ maxWidth: '600px' }}>
+        <div className="preview-modal-overlay" suppressHydrationWarning>
+          <div className="preview-modal-card" style={{ maxWidth: '600px' }} suppressHydrationWarning>
             <button 
               onClick={() => {
                 setDocPreview(null);
@@ -2107,48 +2469,67 @@ export default function Home() {
         </div>
       )}
 
-      {/* Preview Modal */}
-      {previewData?.isOpen && (
-        <div className="preview-modal-overlay">
-          <div className="preview-modal-card">
-            <button 
-              onClick={() => setPreviewData(null)}
-              style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: '#f1f1f1', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', zIndex: 10 }}
-            >×</button>
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-              <h2 className="section-title" style={{ fontSize: '1.6rem' }}>AI Preview</h2>
-              <p style={{ color: 'var(--text-muted)' }}>Comparing original image with AI-processed result</p>
+      {/* AI Background Removal Preview Modal */}
+      {previewData && previewData.isOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+             background: 'white', width: '100%', maxWidth: '1100px', borderRadius: '2.5rem', overflow: 'hidden',
+             display: 'flex', flexDirection: 'column', height: '90vh', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(to right, #ffffff, #f8fafc)' }}>
+               <div>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.25rem' }}>AI Background Removal Success</h2>
+                  <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Comparing original image with AI-processed result</p>
+               </div>
+               <button 
+                  onClick={() => setPreviewData(null)}
+                  style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+               >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+               </button>
             </div>
-            <div className="preview-modal-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Original Image</p>
-                <div className="preview-image-container" style={{ background: '#f8fafc', borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={previewData.original} alt="Original" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                </div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', color: '#666' }}>Processed Result</p>
-                <div className="preview-image-container" style={{ 
-                  background: 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uPBAp8B927cf8BuS88SXBjTHSAbgw4Y8IAZ6V9S8H98IBIAdAn7U9XAAAAAElFTkSuQmCC")', 
-                  borderRadius: '1.5rem', overflow: 'hidden', height: '350px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <img src={previewData.result} alt="Result" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                </div>
-              </div>
+
+            <div style={{ flex: 1, padding: '2.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem', overflowY: 'auto', background: '#f8fafc' }}>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ padding: '0.6rem 1.2rem', background: '#e2e8f0', borderRadius: '1rem', width: 'fit-content', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>ORIGINAL</div>
+                  <div style={{ flex: 1, background: 'white', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     <img src={previewData.original} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="Original" />
+                  </div>
+               </div>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ padding: '0.6rem 1.2rem', background: '#ec4899', borderRadius: '1rem', width: 'fit-content', fontSize: '0.85rem', fontWeight: 700, color: 'white' }}>AI PROCESSED</div>
+                  <div style={{ flex: 1, background: 'white', backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     <img src={previewData.result} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="Result" />
+                  </div>
+               </div>
             </div>
-            <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
-              <button 
-                className="btn-primary gradient-btn" 
-                onClick={() => setPreviewData(null)}
-                style={{ padding: '0.8rem 3rem', borderRadius: '1rem', fontWeight: 600 }}
-              >
-                Close Preview
-              </button>
+
+            <div style={{ padding: '2rem 2.5rem', background: 'white', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
+               <button 
+                  onClick={() => setPreviewData(null)}
+                  style={{ padding: '1rem 2.5rem', borderRadius: '1.25rem', background: '#f1f5f9', color: '#64748b', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+               >Close Preview</button>
+               <button 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = previewData.result;
+                    link.download = "removed_bg.png";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="btn-primary gradient-btn"
+                  style={{ padding: '1rem 3rem', borderRadius: '1.25rem', fontSize: '1rem', fontWeight: 700 }}
+               >Download PNG</button>
             </div>
           </div>
         </div>
       )}
-      {/* Edit PDF Modal */}
+
+      {/* Visual Editor Modal */}
       {editModal.isOpen && (
         <div className="preview-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="preview-modal-card" style={{ maxWidth: '1000px', width: '95%', height: '90vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
@@ -2192,22 +2573,85 @@ export default function Home() {
               overflow: 'hidden', 
               border: '1px solid #e2e8f0', 
               borderRadius: '1.2rem', 
-              background: 'white',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
-            }} className="custom-quill-container">
-              <ReactQuill 
-                theme="snow"
-                value={editModal.currentHtml}
-                onChange={(content) => setEditModal(prev => ({ ...prev, currentHtml: content }))}
-                modules={quillModules}
-                formats={quillFormats}
-                style={{ height: 'calc(100% - 42px)' }}
+              background: '#f8fafc',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+              position: 'relative',
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              {/* High-Fidelity Paper IFrame Editor */}
+              <iframe
+                ref={iframeRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  background: 'transparent'
+                }}
+                title="Word-Based Editor"
+                onLoad={() => {
+                  const doc = iframeRef.current?.contentDocument;
+                  if (doc && editModal.initialHtml) {
+                    // 1. Clean up the incoming HTML (remove duplicate headers/bodies)
+                    let content = editModal.initialHtml;
+                    
+                    // 2. Inject Professional "Paper View" CSS directly into the content
+                    const paperStyles = `
+                      <style id="paper-styles">
+                        /* Professional Paper View Layout */
+                        html {
+                          background: #f1f5f9 !important;
+                          padding: 20px 0 !important;
+                          height: auto !important;
+                          min-height: 100% !important;
+                          display: flex !important;
+                          justify-content: center !important;
+                        }
+                        body {
+                          background: white !important;
+                          width: 210mm !important; /* A4 Width */
+                          min-height: 297mm !important; /* A4 Height */
+                          padding: 20mm !important;
+                          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+                          border: 1px solid #e2e8f0 !important;
+                          margin: 0 auto !important;
+                          position: relative !important;
+                          outline: none !important;
+                          cursor: text !important;
+                          transform-origin: top center;
+                          /* Responsive scaling to fit modal width */
+                          zoom: 0.85; 
+                        }
+                        /* Ensure editing works cleanly */
+                        [contenteditable] { 
+                          cursor: text !important;
+                        }
+                        /* Hide common browser header/footer elements */
+                        @page { margin: 0; }
+                      </style>
+                    `;
+
+                    // Inject styles safely
+                    doc.open();
+                    if (content.includes('</head>')) {
+                      content = content.replace('</head>', `${paperStyles}</head>`);
+                    } else {
+                      content = `<head>${paperStyles}</head>${content}`;
+                    }
+                    doc.write(content);
+                    doc.close();
+
+                    // 4. Enable Editing directly on the body
+                    doc.body.contentEditable = "true";
+                    doc.body.spellcheck = false;
+                  }
+                }}
               />
             </div>
             
             <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              Standard formatting is preserved. Complex layouts like floating objects or custom positions may shift.
+              Professional Paper Mode: Alignment, headers, and borders are preserved. Edit text naturally like in Word.
             </p>
           </div>
         </div>
