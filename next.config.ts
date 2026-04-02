@@ -25,6 +25,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  webpack: (config) => {
+    // Disable symlinks to prevent Next.js from resolving X:\ back to the original D:\ path
+    // This fixes the 404 error when running from a subst virtual drive
+    config.resolve.symlinks = false;
+    return config;
+  },
 };
 
 export default nextConfig;
