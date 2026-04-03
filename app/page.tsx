@@ -74,6 +74,7 @@ export default function Home() {
     isSaving: false
   });
   const [removalEngine, setRemovalEngine] = useState<'standard' | 'ultra'>('standard');
+  const [videoEngine, setVideoEngine] = useState<'wasm' | 'cloud' | 'local'>('wasm');
 
 
   // Download section state
@@ -1309,6 +1310,115 @@ export default function Home() {
       return;
     }
 
+    // Video Unified Hub Logic
+    if (fileItem.type === 'Video') {
+      try {
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 10 } : f));
+        const targetFormat = fileItem.targetFormat || 'MP4';
+        const newName = fileItem.name.split('.')[0] + '_converted.' + targetFormat.toLowerCase();
+        
+        let resultUrl = '';
+
+        if (videoEngine === 'wasm') {
+          // Engine 1: Client-Side FFmpeg
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 20 } : f));
+          const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+          const { fetchFile } = await import('@ffmpeg/util');
+          
+          const ffmpeg = new FFmpeg();
+          ffmpeg.on('progress', ({ progress }) => {
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 20 + Math.floor(progress * 70) } : f));
+          });
+          
+          await ffmpeg.load({
+            coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+            wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm"
+          });
+          
+          await ffmpeg.writeFile('input_video', await fetchFile(fileItem.file));
+          
+          // Execute conversion mapping
+          let cmd = ['-i', 'input_video'];
+          if (targetFormat.toLowerCase() === 'mp3') {
+             cmd.push('-vn', '-c:a', 'libmp3lame');
+          } else if (targetFormat.toLowerCase() === 'wav') {
+             cmd.push('-vn'); // raw audio
+          } else if (targetFormat.toLowerCase() === 'webm') {
+             cmd.push('-c:v', 'libvpx', '-c:a', 'libvorbis');
+          } else {
+             cmd.push('-c:v', 'libx264', '-preset', 'ultrafast'); 
+          }
+          cmd.push('output.' + targetFormat.toLowerCase());
+          
+          await ffmpeg.exec(cmd);
+          const data = await ffmpeg.readFile('output.' + targetFormat.toLowerCase());
+          const blob = new Blob([data as any], { type: 'video/' + targetFormat.toLowerCase() });
+          resultUrl = URL.createObjectURL(blob);
+
+        } else {
+          // Engine 2 or 3: Server-side
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 30 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+          formData.append('format', targetFormat);
+          
+          let currentEngine = videoEngine;
+          let apiRoute = currentEngine === 'cloud' ? '/api/video/cloud' : '/api/video/local';
+          let response = await fetch(apiRoute, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.clone().json().catch(() => ({}));
+            // Seamlessly Fallback from Cloud -> Local if key is missing
+            if (currentEngine === 'cloud' && errJson.error && errJson.error.includes("CLOUDCONVERT_API_KEY")) {
+              console.warn("CloudConvert config missing! Seamlessly falling back to Server CPU Engine...");
+              currentEngine = 'local';
+              apiRoute = '/api/video/local';
+              response = await fetch(apiRoute, {
+                method: 'POST',
+                body: formData,
+              });
+            }
+          }
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          if (currentEngine === 'cloud') {
+             const data = await response.json();
+             resultUrl = data.downloadUrl;
+          } else {
+             const blob = await response.blob();
+             resultUrl = URL.createObjectURL(blob);
+          }
+        }
+        
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl } : f));
+
+        // Auto Download
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = resultUrl;
+          link.setAttribute('download', newName); 
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, 800);
+        return;
+      } catch (err: any) {
+         console.error("Video Engine Error:", err);
+         alert('Failed to convert video: ' + err.message);
+         setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+         return;
+      }
+    }
+
     // Image active tool logic (Remove Background)
     if (fileItem.type === 'Images' && activeImageTool === 'remove-bg') {
         try {
@@ -2083,6 +2193,23 @@ export default function Home() {
                     <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{displayTitle}</h3>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{displayDesc}</p>
                     
+                    {activeCategory === 'Video' && (
+                      <div style={{ display: 'flex', background: '#f8fafc', padding: '0.4rem', borderRadius: '0.85rem', marginBottom: '1.5rem', maxWidth: '450px', margin: '0 auto 1.5rem', border: '1px solid #e2e8f0' }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setVideoEngine('wasm'); }}
+                          style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: videoEngine === 'wasm' ? 'white' : 'transparent', color: videoEngine === 'wasm' ? 'var(--primary)' : '#64748b', boxShadow: videoEngine === 'wasm' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                        >WASM Engine<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Local/Free</span></button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setVideoEngine('cloud'); }}
+                          style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: videoEngine === 'cloud' ? 'white' : 'transparent', color: videoEngine === 'cloud' ? '#ec4899' : '#64748b', boxShadow: videoEngine === 'cloud' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                        >Cloud API<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Fastest + Key</span></button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setVideoEngine('local'); }}
+                          style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: videoEngine === 'local' ? 'white' : 'transparent', color: videoEngine === 'local' ? '#10b981' : '#64748b', boxShadow: videoEngine === 'local' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                        >Server CPU<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Hosts Only</span></button>
+                      </div>
+                    )}
+                    
                     {activeImageTool === 'remove-bg' && (
                       <div style={{
                         display: 'flex',
@@ -2222,9 +2349,13 @@ export default function Home() {
                               suppressHydrationWarning
                             >
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }} suppressHydrationWarning>
-                              <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
-                                {categories.find(c => c.name === activeCategory)?.icon || "📄"}
-                              </div>
+                              {activeCategory === 'Video' && file.file ? (
+                                <video src={URL.createObjectURL(file.file)} style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover", background: "#000" }} muted loop preload="metadata" />
+                              ) : (
+                                <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
+                                  {categories.find(c => c.name === activeCategory)?.icon || "📄"}
+                                </div>
+                              )}
                               <div style={{ maxWidth: '120px' }}>
                                 <div style={{ fontWeight: 600, fontSize: "0.85rem", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
                                 <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{file.size} KB</div>
