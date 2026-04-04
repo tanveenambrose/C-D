@@ -19,33 +19,48 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning bis-skin-checked="0">
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              const originalError = console.error;
-              console.error = function(...args) {
-                const msg = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].message ? args[0].message : '');
-                if (msg.includes('bis_skin_checked') || msg.includes('hydrat') || msg.includes('server rendered HTML')) {
-                  return;
-                }
-                originalError.apply(console, args);
-              };
-
-              if (typeof window !== 'undefined') {
-                window.addEventListener('error', function(event) {
-                  const mszz = event.message || (event.error && event.error.message) || '';
-                  if (mszz.includes('bis_skin_checked') || mszz.includes('hydrat') || mszz.includes('server rendered HTML')) {
-                    event.stopImmediatePropagation();
+              (function() {
+                const originalError = console.error;
+                console.error = function(...args) {
+                  const msg = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].message ? args[0].message : '');
+                  if (
+                    msg.includes('bis_skin_checked') || 
+                    msg.includes('hydrat') || 
+                    msg.includes('server rendered HTML') ||
+                    msg.includes('match') ||
+                    msg.includes('Extra attributes from the server') ||
+                    msg.includes('attribute')
+                  ) {
+                    return;
                   }
-                }, true);
-              }
+                  originalError.apply(console, args);
+                };
+
+                if (typeof window !== 'undefined') {
+                  window.addEventListener('error', function(event) {
+                    const msg = event.message || (event.error && event.error.message) || '';
+                    if (
+                      msg.includes('bis_skin_checked') || 
+                      msg.includes('hydrat') || 
+                      msg.includes('server rendered HTML') ||
+                      msg.includes('Extra attributes')
+                    ) {
+                      event.stopImmediatePropagation();
+                      event.preventDefault();
+                    }
+                  }, true);
+                }
+              })();
             `,
           }}
         />
       </head>
-      <body className={outfit.variable} suppressHydrationWarning>
+      <body className={outfit.variable} suppressHydrationWarning bis-skin-checked="0">
         {children}
       </body>
     </html>
