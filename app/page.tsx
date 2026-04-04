@@ -1844,7 +1844,13 @@ export default function Home() {
             </svg>
           </div>
           <div className="search-bar" style={{ maxWidth: '300px' }} suppressHydrationWarning>
-            <input type="text" placeholder="Search..." style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} />
+            <input 
+              id="global-search"
+              name="search"
+              type="text" 
+              placeholder="Search..." 
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} 
+            />
           </div>
           <div className="header-actions" suppressHydrationWarning>
             <a href="#" className="nav-link" style={{ fontSize: '0.85rem' }}>Pricing</a>
@@ -1927,6 +1933,8 @@ export default function Home() {
                   suppressHydrationWarning
                 >
                   <input
+                    id="video-url-input"
+                    name="videoUrl"
                     type="text"
                     placeholder={`Paste ${selectedPlatform} video URL here...`}
                     value={videoUrl}
@@ -2365,6 +2373,8 @@ export default function Home() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
                               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'Convert to:'}</span>
                               <select 
+                                id={`format-select-${index}`}
+                                name={`format-select-${index}`}
                                 value={file.targetFormat || displayFormats[0] || 'PDF'}
                                 onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
                                 disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
@@ -2380,6 +2390,8 @@ export default function Home() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
                                   <input 
+                                    id={`remove-bg-opt-${index}`}
+                                    name={`remove-bg-opt-${index}`}
                                     type="checkbox" 
                                     checked={!!file.removeBg} 
                                     onChange={() => toggleRemoveBg(files.indexOf(file))}
