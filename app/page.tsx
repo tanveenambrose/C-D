@@ -83,6 +83,7 @@ export default function Home() {
   const [dlResult, setDlResult] = useState<any>(null);
   // Per-button download loading state: maps media index to progress 0-100 or -1 for error
   const [dlProgress, setDlProgress] = useState<Record<number, number>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sidebarRef = useRef(null);
   const headerRef = useRef(null);
@@ -1791,6 +1792,28 @@ export default function Home() {
   const displayFormats = activeToolData?.formats || currentCategory?.formats || [];
   const primaryBg = activeToolData?.color || currentCategory?.gradient || "var(--primary)";
 
+  // Combined Search Logic
+  const allSearchableItems = [
+    ...pdfTools.map(t => ({ ...t, category: 'Documents', type: 'tool' })),
+    ...imageTools.map(t => ({ ...t, category: 'Images', type: 'tool' })),
+    ...categories.map(c => ({ 
+      id: c.name.toLowerCase(), 
+      title: c.name, 
+      desc: c.subtitle || `Access all ${c.name} processing tools.`, 
+      color: c.gradient ? 'var(--primary)' : '#6366f1', 
+      icon: <span style={{ fontSize: '1.5rem' }}>{c.icon}</span>,
+      category: c.name,
+      type: 'category'
+    }))
+  ];
+
+  const searchResults = searchQuery 
+    ? allSearchableItems.filter(item => 
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        item.desc.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
   return (
     <div className="app-container" suppressHydrationWarning>
 
@@ -1843,26 +1866,89 @@ export default function Home() {
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </div>
-          <div className="search-bar" style={{ maxWidth: '300px' }} suppressHydrationWarning>
+          <div className="search-bar" style={{ maxWidth: '400px' }} suppressHydrationWarning>
             <input 
               id="global-search"
               name="search"
               type="text" 
-              placeholder="Search..." 
+              placeholder="🔍 Search for tools (e.g. Merge, Convert, Compress...)" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} 
             />
           </div>
           <div className="header-actions" suppressHydrationWarning>
-            <a href="#" className="nav-link" style={{ fontSize: '0.85rem' }}>Pricing</a>
-            <a href="#" className="nav-link" style={{ fontSize: '0.85rem' }}>FAQ</a>
             <button className="btn-outline" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Sign In</button>
-            <button className="btn-primary gradient-btn" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Start Converting</button>
           </div>
         </header>
 
         {/* Hero & Converter Zone */}
         <section className="hero-section">
-          {activeCategory === "Download" ? (
+          {searchQuery ? (
+            <div className="search-results-container" style={{ textAlign: 'left', maxWidth: '1100px', margin: '0 auto', paddingTop: '1rem' }} suppressHydrationWarning>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                 <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Search Results for &quot;{searchQuery}&quot;</h2>
+                 <button 
+                  onClick={() => setSearchQuery("")}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+                 >
+                   Clear Search
+                 </button>
+               </div>
+               
+               {searchResults.length > 0 ? (
+                 <div className="pdf-tools-grid" style={{
+                   display: 'grid',
+                   gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                   gap: '1rem'
+                 }}>
+                   {searchResults.map(item => (
+                     <div key={`${item.type}-${item.id}`} onClick={() => {
+                        setActiveCategory(item.category);
+                        if (item.type === 'tool') {
+                          if (item.category === 'Documents') setActiveDocumentTool(item.id);
+                          if (item.category === 'Images') setActiveImageTool(item.id);
+                        } else {
+                          setActiveDocumentTool(null);
+                          setActiveImageTool(null);
+                        }
+                        setSearchQuery("");
+                     }} style={{
+                       background: 'white',
+                       border: '1px solid rgba(0,0,0,0.05)',
+                       borderRadius: '1rem',
+                       padding: '1.25rem',
+                       cursor: 'pointer',
+                       boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                       transition: 'all 0.2s ease',
+                       display: 'flex',
+                       flexDirection: 'column',
+                       gap: '0.75rem'
+                     }}
+                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = 'var(--primary)40'; }}
+                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.05)'; }}
+                     >
+                       <div style={{ color: item.color, marginBottom: '0.25rem' }}>
+                         {item.icon}
+                       </div>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                         <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{item.title}</h4>
+                         <span style={{ fontSize: '0.65rem', background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '0.4rem', color: '#64748b', fontWeight: 700 }}>
+                           {item.category}
+                         </span>
+                       </div>
+                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.desc}</p>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>No tools found matching your search. Try another keyword!</p>
+                 </div>
+               )}
+            </div>
+          ) : activeCategory === "Download" ? (
             <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }} suppressHydrationWarning>
               {/* Section Header */}
               <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '1rem' }} suppressHydrationWarning>
