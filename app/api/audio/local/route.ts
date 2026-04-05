@@ -4,21 +4,18 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-// Ensure Node doesn't kill this process too quickly if testing locally
+// Ensure Node doesn't kill this process too quickly
 export const maxDuration = 300;
 
 function getFfmpegPath(): string {
-  // Resolve dynamically at runtime to bypass Webpack bundling issues
   const isWindows = process.platform === 'win32';
   const exeName = isWindows ? 'ffmpeg.exe' : 'ffmpeg';
 
-  // Try ffmpeg-static from node_modules first (most reliable on Windows dev)
   const candidates = [
     path.join(process.cwd(), 'node_modules', 'ffmpeg-static', exeName),
     path.join(process.cwd(), 'node_modules', '.bin', exeName),
   ];
 
-  // Also try what ffmpeg-static exports, but catch if it resolves to wrong path
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const staticPath: string = require('ffmpeg-static');
@@ -41,6 +38,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const formatRaw = formData.get('format') as string;
+    const quality = (formData.get('quality') as string) || 'best';
 
     if (!file || !formatRaw) {
       return NextResponse.json({ error: 'File and target format are required' }, { status: 400 });
@@ -48,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const format = formatRaw.toLowerCase();
 
-    // Resolve ffmpeg path at request time to avoid Webpack bundling issues
+    // Resolve ffmpeg path at request time
     let ffmpegPath: string;
     try {
       ffmpegPath = getFfmpegPath();
@@ -60,78 +58,48 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Create temporary paths for the conversion
     const tempDir = os.tmpdir();
     const uid = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const inputPath = path.join(tempDir, `input_${uid}_${safeFileName}`);
-    const outputPath = path.join(tempDir, `output_${uid}.${format}`);
+    const inputPath = path.join(tempDir, `input_audio_${uid}_${safeFileName}`);
+    const outputPath = path.join(tempDir, `output_audio_${uid}.${format}`);
 
-    // Write input to disk
     fs.writeFileSync(inputPath, buffer);
 
-    // Map extensions to strict codecs to ensure playback safety
-    const codecMap: Record<string, { video?: string; audio?: string; audioOnly?: boolean }> = {
-      mp4:  { video: 'libx264',  audio: 'aac' },
-      mov:  { video: 'libx264',  audio: 'aac' },
-      mkv:  { video: 'libx264',  audio: 'aac' },
-      webm: { video: 'libvpx',   audio: 'libvorbis' },
-      avi:  { video: 'mpeg4',    audio: 'libmp3lame' },
-      mp3:  { audioOnly: true },
-      wav:  { audioOnly: true },
-      ogg:  { audioOnly: true },
-      m4a:  { audioOnly: true },
-      flac: { audioOnly: true },
-    };
-
-    const quality = formData.get('quality') as string || 'best';
     const bitrateMap: Record<string, string> = {
       best: '320k',
       good: '192k',
       standard: '128k'
     };
 
-    const codecInfo = codecMap[format] || { video: 'libx264', audio: 'aac' };
+    const br = bitrateMap[quality] || '320k';
 
     return new Promise<NextResponse>((resolve) => {
-      const command = ffmpeg(inputPath);
+      const command = ffmpeg(inputPath).noVideo();
 
-      if (codecInfo.audioOnly) {
-        command.noVideo();
-        const br = bitrateMap[quality] || '320k';
-        
-        if (format === 'mp3') {
-          command.audioCodec('libmp3lame').audioBitrate(br);
-        } else if (format === 'ogg') {
-          command.audioCodec('libvorbis').audioBitrate(br);
-        } else if (format === 'm4a') {
-          command.audioCodec('aac').audioBitrate(br);
-        } else if (format === 'flac') {
-          command.audioCodec('flac');
-        }
-        // wav uses default pcm encoder
-      } else {
-        if (codecInfo.video) command.videoCodec(codecInfo.video);
-        if (codecInfo.audio) command.audioCodec(codecInfo.audio);
+      if (format === 'mp3') {
+        command.audioCodec('libmp3lame').audioBitrate(br);
+      } else if (format === 'ogg') {
+        command.audioCodec('libvorbis').audioBitrate(br);
+      } else if (format === 'm4a') {
+        command.audioCodec('aac').audioBitrate(br);
+      } else if (format === 'flac') {
+        command.audioCodec('flac');
+      } else if (format === 'wav') {
+        // use default pcm encoder for wav
       }
 
       command
-        .outputOptions(['-y'])   // overwrite if exists
+        .outputOptions(['-y'])
         .toFormat(format)
-        .on('start', (cmdLine) => console.log('FFmpeg started:', cmdLine))
+        .on('start', (cmdLine) => console.log('Audio Conversion started:', cmdLine))
         .on('end', () => {
           try {
             const fileBuffer = fs.readFileSync(outputPath);
-            // Cleanup temps
             try { fs.unlinkSync(inputPath); } catch (_) {}
             try { fs.unlinkSync(outputPath); } catch (_) {}
 
             const mimeTypes: Record<string, string> = {
-              mp4:  'video/mp4',
-              webm: 'video/webm',
-              mkv:  'video/x-matroska',
-              mov:  'video/quicktime',
-              avi:  'video/x-msvideo',
               mp3:  'audio/mpeg',
               wav:  'audio/wav',
               ogg:  'audio/ogg',
@@ -153,16 +121,16 @@ export async function POST(req: NextRequest) {
           }
         })
         .on('error', (err) => {
-          console.error('FFmpeg execution error:', err);
+          console.error('Audio FFmpeg execution error:', err);
           try { fs.unlinkSync(inputPath); } catch (_) {}
           try { fs.unlinkSync(outputPath); } catch (_) {}
-          resolve(NextResponse.json({ error: err.message || 'FFmpeg conversion failed' }, { status: 500 }));
+          resolve(NextResponse.json({ error: err.message || 'Audio conversion failed' }, { status: 500 }));
         })
         .save(outputPath);
     });
 
   } catch (error: any) {
-    console.error('Local FFmpeg Engine Error:', error);
+    console.error('Local Audio Engine Error:', error);
     return NextResponse.json({ error: error.message || 'Server error during local conversion' }, { status: 500 });
   }
 }

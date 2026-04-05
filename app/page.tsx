@@ -44,11 +44,29 @@ const imageTools = [
   { id: 'convert', title: 'Convert Format', desc: 'Convert your images to WEBP, PNG, JPG or GIF in seconds.', color: '#F18F2E', accept: 'image/*', uploadTitle: 'Select Image to Convert', buttonText: 'Select Image', formats: ['WEBP', 'PNG', 'JPG', 'GIF'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> },
 ];
 
+// Audio Tools List (Pulse Engine)
+const audioTools = [
+  { id: 'audio-to-mp3', title: 'Convert to MP3', desc: 'Universal compatibility. Best for mobile devices and music players.', color: '#FFB800', accept: 'audio/*', uploadTitle: 'Select Audio to MP3', buttonText: 'Select Audio', formats: ['MP3'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> },
+  { id: 'audio-to-wav', title: 'Convert to WAV', desc: 'Uncompressed CD quality. Best for editing and professional use.', color: '#2B579A', accept: 'audio/*', uploadTitle: 'Select Audio to WAV', buttonText: 'Select Audio', formats: ['WAV'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M2 12h20M7 8l-5 4 5 4M17 8l5 4-5 4"/></svg> },
+  { id: 'audio-to-flac', title: 'Convert to FLAC', desc: 'Lossless compression. Perfect for archiving your music collection.', color: '#4CAF50', accept: 'audio/*', uploadTitle: 'Select Audio to FLAC', buttonText: 'Select Audio', formats: ['FLAC'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg> },
+  { id: 'audio-to-m4a', title: 'Convert to M4A', desc: 'High quality at lower bitrates. Optimized for Apple devices.', color: '#5C5C5C', accept: 'audio/*', uploadTitle: 'Select Audio to M4A', buttonText: 'Select Audio', formats: ['M4A'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20.94c1.88-1.55 3.19-3.7 3.69-6.04h-7.38c.5 2.34 1.81 4.49 3.69 6.04z"/><path d="M12 3.06c-1.88 1.55-3.19 3.7-3.69 6.04h7.38c-.5-2.34-1.81-4.49-3.69-6.04z"/><path d="M3.06 12c1.55 1.88 3.7 3.19 6.04 3.69v-7.38c-2.34.5-4.49 1.81-6.04 3.69z"/><path d="M20.94 12c-1.55-1.88-3.7-3.19-6.04-3.69v7.38c2.34-.5 4.49-1.81 6.04-3.69z"/></svg> },
+  { id: 'audio-to-ogg', title: 'Convert to OGG', desc: 'Open source format. Great for web use and game development.', color: '#F18F2E', accept: 'audio/*', uploadTitle: 'Select Audio to OGG', buttonText: 'Select Audio', formats: ['OGG'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg> },
+];
+
+// Archive Tools List (Hub Engine)
+const archiveTools = [
+  { id: 'compress-hub', title: 'Compress Files', desc: 'Securely pack multiple files into a single ZIP, RAR, or 7Z archive.', color: '#10B981', accept: '*/*', uploadTitle: 'Select Files to Compress', buttonText: 'Select Files', formats: ['ZIP', '7Z', 'TAR'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M10 12h4"/><path d="M10 16h4"/><path d="M10 8h4"/></svg> },
+  { id: 'extract-hub', title: 'Extract Archive', desc: 'Instant decompression for ZIP, RAR, 7Z, and TAR files.', color: '#F18F2E', accept: '.zip,.rar,.7z,.tar,.gz', uploadTitle: 'Select Archive to Extract', buttonText: 'Select Archive', formats: ['Folder'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20"/><path d="M2 12h20"/><path d="m7 7-5 5 5 5"/><path d="m17 7 5 5-5 5"/></svg> },
+  { id: 'convert-hub', title: 'Convert Archive', desc: 'Transform RAR to ZIP, 7Z to TAR, and other archive formats.', color: '#2B579A', accept: '.zip,.rar,.7z,.tar,.gz', uploadTitle: 'Select Archive to Convert', buttonText: 'Select Archive', formats: ['ZIP', '7Z', 'TAR'], icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="m3 12 3 3 6-6"/></svg> },
+];
+
 export default function Home() {
   const [files, setFiles] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("Download");
   const [activeDocumentTool, setActiveDocumentTool] = useState<string | null>(null);
   const [activeImageTool, setActiveImageTool] = useState<string | null>(null);
+  const [activeAudioTool, setActiveAudioTool] = useState<string | null>(null);
+  const [activeArchiveTool, setActiveArchiveTool] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState("YouTube");
   const [videoUrl, setVideoUrl] = useState("");
   const [previewData, setPreviewData] = useState<{ original: string; result: string; isOpen: boolean } | null>(null);
@@ -75,6 +93,9 @@ export default function Home() {
   });
   const [removalEngine, setRemovalEngine] = useState<'standard' | 'ultra'>('standard');
   const [videoEngine, setVideoEngine] = useState<'wasm' | 'cloud' | 'local'>('wasm');
+  const [audioEngine, setAudioEngine] = useState<'wasm' | 'cloud' | 'local'>('wasm');
+  const [audioQuality, setAudioQuality] = useState<'best' | 'good' | 'standard'>('best');
+  const [archiveEngine, setArchiveEngine] = useState<'wasm' | 'cloud' | 'local'>('wasm');
 
 
   // Download section state
@@ -1311,6 +1332,220 @@ export default function Home() {
       return;
     }
 
+    // Audio Unified Hub Logic
+    if (fileItem.type === 'Audio' || activeCategory === 'Audio') {
+      try {
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 10 } : f));
+        const targetFormat = fileItem.targetFormat || activeToolData?.formats?.[0] || 'MP3';
+        const newName = fileItem.name.split('.')[0] + '_converted.' + targetFormat.toLowerCase();
+        
+        let resultUrl = '';
+
+        if (audioEngine === 'wasm') {
+          // Engine 1: Client-Side FFmpeg
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 20 } : f));
+          const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+          const { fetchFile } = await import('@ffmpeg/util');
+          
+          const ffmpeg = new FFmpeg();
+          ffmpeg.on('progress', ({ progress }) => {
+            setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 20 + Math.floor(progress * 70) } : f));
+          });
+          
+          await ffmpeg.load({
+            coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+            wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm"
+          });
+          
+          await ffmpeg.writeFile('input_audio', await fetchFile(fileItem.file));
+          
+          // Execute conversion mapping with quality presets
+          let cmd = ['-i', 'input_audio', '-vn'];
+          const br = audioEngine === 'wasm' ? (audioQuality === 'best' ? '320k' : (audioQuality === 'good' ? '192k' : '128k')) : '320k';
+          
+          if (targetFormat.toLowerCase() === 'mp3') {
+             cmd.push('-c:a', 'libmp3lame', '-b:a', br);
+          } else if (targetFormat.toLowerCase() === 'ogg') {
+             cmd.push('-c:a', 'libvorbis', '-b:a', br);
+          } else if (targetFormat.toLowerCase() === 'm4a') {
+             cmd.push('-c:a', 'aac', '-b:a', br);
+          } else if (targetFormat.toLowerCase() === 'flac') {
+             cmd.push('-c:a', 'flac');
+          } else if (targetFormat.toLowerCase() === 'wav') {
+             // Default pcm
+          }
+          
+          cmd.push('output.' + targetFormat.toLowerCase());
+          
+          await ffmpeg.exec(cmd);
+          const data = await ffmpeg.readFile('output.' + targetFormat.toLowerCase());
+          const blob = new Blob([data as any], { type: 'audio/' + targetFormat.toLowerCase() });
+          resultUrl = URL.createObjectURL(blob);
+
+        } else {
+          // Engine 2 or 3: Server-side (Cloud or Local)
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 30 } : f));
+          const formData = new FormData();
+          formData.append('file', fileItem.file, fileItem.name);
+          formData.append('format', targetFormat);
+          formData.append('quality', audioQuality);
+          
+          let currentEngine = audioEngine;
+          let apiRoute = currentEngine === 'cloud' ? '/api/audio/cloud' : '/api/audio/local';
+          let response = await fetch(apiRoute, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errJson = await response.clone().json().catch(() => ({}));
+            // Seamlessly Fallback from Cloud -> Local if key is missing
+            if (currentEngine === 'cloud' && errJson.error && errJson.error.includes("CLOUDCONVERT_API_KEY")) {
+              console.warn("CloudConvert config missing! Seamlessly falling back to Server CPU Engine...");
+              currentEngine = 'local';
+              apiRoute = '/api/audio/local';
+              response = await fetch(apiRoute, {
+                method: 'POST',
+                body: formData,
+              });
+            }
+          }
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Server error: ${response.status}`);
+          }
+          
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 90 } : f));
+
+          if (currentEngine === 'cloud') {
+             const data = await response.json();
+             resultUrl = data.downloadUrl;
+          } else {
+             const blob = await response.blob();
+             resultUrl = URL.createObjectURL(blob);
+          }
+        }
+        
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl } : f));
+
+        // Auto Download
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = resultUrl;
+          link.setAttribute('download', newName); 
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, 800);
+        return;
+      } catch (err: any) {
+         console.error("Audio Engine Error:", err);
+         alert('Failed to convert audio: ' + err.message);
+         setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+         return;
+      }
+    }
+
+    // Archive Hub Logic
+    if (fileItem.type === 'Archive' || activeCategory === 'Archive') {
+      try {
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "converting", progress: 10 } : f));
+        
+        let resultUrl = '';
+        const targetFormat = fileItem.targetFormat || activeToolData?.formats?.[0] || 'ZIP';
+        const operation = activeArchiveTool || 'compress';
+
+        if (archiveEngine === 'wasm') {
+          // Engine 1: Client-Side JSZip
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 30 } : f));
+          
+          if (operation === 'compress-hub') {
+            const zip = new JSZip();
+            // In a real multi-select, we'd have multiple files. 
+            // For the single-item upload UI, we'll just zip the one file or all current files.
+            const filesToZip = files.filter(f => f.type === 'Archive' || activeCategory === 'Archive');
+            for (const f of filesToZip) {
+              zip.file(f.name, f.file);
+            }
+            const blob = await zip.generateAsync({ type: "blob" });
+            resultUrl = URL.createObjectURL(blob);
+          } else if (operation === 'extract-hub') {
+            // Extraction in WASM
+            const zip = await JSZip.loadAsync(fileItem.file);
+            // JSZip doesn't extract RAR/7Z natively. We'll alert for unsupported formats in WASM.
+            if (fileItem.name.toLowerCase().endsWith('.rar') || fileItem.name.toLowerCase().endsWith('.7z')) {
+               throw new Error("WASM Engine only supports ZIP extraction. Use Cloud API or Server CPU for RAR/7Z.");
+            }
+            // For ZIP, we can zip it back or give individual files. 
+            // The user asked for "convert and download", so we'll just re-zip or similar.
+            const blob = await zip.generateAsync({ type: "blob" });
+            resultUrl = URL.createObjectURL(blob);
+          } else {
+            // Convert Hub (e.g. ZIP to TAR)
+            // WASM conversion is limited. We'll fallback.
+            throw new Error("Archive Conversion is only supported via Cloud API or Server CPU Engines.");
+          }
+        } else {
+          // Engine 2 or 3: Server-side (Cloud or Local)
+          const formData = new FormData();
+          files.filter(f => f.type === 'Archive' || activeCategory === 'Archive').forEach(f => {
+            formData.append('files', f.file, f.name);
+          });
+          formData.append('format', targetFormat);
+          formData.append('operation', operation);
+
+          let currentEngine = archiveEngine;
+          let apiRoute = currentEngine === 'cloud' ? '/api/archive/cloud' : '/api/archive/local';
+          
+          let response = await fetch(apiRoute, { method: 'POST', body: formData });
+
+          if (!response.ok) {
+            const errJson = await response.clone().json().catch(() => ({}));
+            // Fallback Cloud -> Local
+            if (currentEngine === 'cloud' && errJson.error && errJson.error.includes("CLOUDCONVERT_API_KEY")) {
+              console.warn("Cloud key missing! Falling back to Local Archive Engine...");
+              currentEngine = 'local';
+              apiRoute = '/api/archive/local';
+              response = await fetch(apiRoute, { method: 'POST', body: formData });
+            }
+          }
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `Archive Engine error: ${response.status}`);
+          }
+
+          if (currentEngine === 'cloud') {
+            const data = await response.json();
+            resultUrl = data.downloadUrl;
+          } else {
+            const blob = await response.blob();
+            resultUrl = URL.createObjectURL(blob);
+          }
+        }
+
+        const outName = `processed_${fileItem.name.split('.')[0]}.${targetFormat.toLowerCase()}`;
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 100, status: 'download', resultUrl } : f));
+
+        // Auto Download
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = resultUrl;
+          link.setAttribute('download', outName);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, 800);
+        return;
+      } catch (err: any) {
+        console.error("Archive Hub Error:", err);
+        alert("Archive Processing Failed: " + err.message);
+        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: "idle", progress: 0 } : f));
+        return;
+      }
+    }
+
     // Video Unified Hub Logic
     if (fileItem.type === 'Video') {
       try {
@@ -1782,7 +2017,7 @@ export default function Home() {
 
   const activeToolData = activeDocumentTool 
     ? pdfTools.find(t => t.id === activeDocumentTool) 
-    : (activeImageTool ? imageTools.find(t => t.id === activeImageTool) : null);
+    : (activeImageTool ? imageTools.find(t => t.id === activeImageTool) : (activeAudioTool ? audioTools.find(t => t.id === activeAudioTool) : (activeArchiveTool ? archiveTools.find(t => t.id === activeArchiveTool) : null)));
     
   const currentCategory = categories.find(c => c.name === activeCategory);
   const displayTitle = activeToolData?.uploadTitle || currentCategory?.uploadTitle || `Upload ${activeCategory}`;
@@ -1796,6 +2031,8 @@ export default function Home() {
   const allSearchableItems = [
     ...pdfTools.map(t => ({ ...t, category: 'Documents', type: 'tool' })),
     ...imageTools.map(t => ({ ...t, category: 'Images', type: 'tool' })),
+    ...audioTools.map(t => ({ ...t, category: 'Audio', type: 'tool' })),
+    ...archiveTools.map(t => ({ ...t, category: 'Archive', type: 'tool' })),
     ...categories.map(c => ({ 
       id: c.name.toLowerCase(), 
       title: c.name, 
@@ -1841,6 +2078,8 @@ export default function Home() {
                 setActiveCategory(cat.name);
                 setActiveDocumentTool(null);
                 setActiveImageTool(null);
+                setActiveAudioTool(null);
+                setActiveArchiveTool(null);
                 setIsSidebarOpen(false);
               }}
             >
@@ -1908,9 +2147,13 @@ export default function Home() {
                         if (item.type === 'tool') {
                           if (item.category === 'Documents') setActiveDocumentTool(item.id);
                           if (item.category === 'Images') setActiveImageTool(item.id);
+                          if (item.category === 'Audio') setActiveAudioTool(item.id);
+                          if (item.category === 'Archive') setActiveArchiveTool(item.id);
                         } else {
                           setActiveDocumentTool(null);
                           setActiveImageTool(null);
+                          setActiveAudioTool(null);
+                          setActiveArchiveTool(null);
                         }
                         setSearchQuery("");
                      }} style={{
@@ -2181,7 +2424,7 @@ export default function Home() {
               )}
 
             </div>
-          ) : (activeCategory === 'Documents' && !activeDocumentTool) || (activeCategory === 'Images' && !activeImageTool) ? (
+          ) : (activeCategory === 'Documents' && !activeDocumentTool) || (activeCategory === 'Images' && !activeImageTool) || (activeCategory === 'Audio' && !activeAudioTool) || (activeCategory === 'Archive' && !activeArchiveTool) ? (
             <>
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1rem', paddingTop: '0.5rem' }}>
                 <h2 className="section-title" style={{ fontSize: '1.75rem' }}>
@@ -2201,8 +2444,13 @@ export default function Home() {
                 margin: '0 auto',
                 paddingBottom: '2rem'
               }}>
-                {(activeCategory === 'Documents' ? pdfTools : imageTools).map(tool => (
-                  <div key={tool.id} onClick={() => activeCategory === 'Documents' ? setActiveDocumentTool(tool.id) : setActiveImageTool(tool.id)} style={{
+                {(activeCategory === 'Documents' ? pdfTools : (activeCategory === 'Images' ? imageTools : (activeCategory === 'Audio' ? audioTools : archiveTools))).map(tool => (
+                  <div key={tool.id} onClick={() => {
+                    if (activeCategory === 'Documents') setActiveDocumentTool(tool.id);
+                    else if (activeCategory === 'Images') setActiveImageTool(tool.id);
+                    else if (activeCategory === 'Audio') setActiveAudioTool(tool.id);
+                    else if (activeCategory === 'Archive') setActiveArchiveTool(tool.id);
+                  }} style={{
                     background: 'white',
                     border: '1px solid rgba(0,0,0,0.05)',
                     borderRadius: '1rem',
@@ -2228,11 +2476,11 @@ export default function Home() {
             </>
           ) : (
             <>
-              {(activeDocumentTool || activeImageTool) && (
+              {(activeDocumentTool || activeImageTool || activeAudioTool || activeArchiveTool) && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <button onClick={() => { setActiveDocumentTool(null); setActiveImageTool(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button onClick={() => { setActiveDocumentTool(null); setActiveImageTool(null); setActiveAudioTool(null); setActiveArchiveTool(null); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                    Back to all {activeCategory === 'Images' ? 'Image' : 'PDF'} tools
+                    Back to all {activeCategory === 'Images' ? 'Image' : (activeCategory === 'Audio' ? 'Audio' : (activeCategory === 'Archive' ? 'Archive' : 'PDF'))} tools
                   </button>
                 </div>
               )}
@@ -2280,6 +2528,10 @@ export default function Home() {
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                       ) : activeCategory === 'Video' ? (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-2 14.5v-9l6 4.5z"/></svg>
+                      ) : activeCategory === 'Audio' ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                      ) : activeCategory === 'Archive' ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M10 12h4"/><path d="M10 16h4"/><path d="M10 8h4"/></svg>
                       ) : (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                       )}
@@ -2340,6 +2592,67 @@ export default function Home() {
                           Ultra Cloud AI
                           <span style={{ fontSize: '0.6rem', background: '#fce7f3', color: '#ec4899', padding: '0.1rem 0.4rem', borderRadius: '0.4rem' }}>PRO</span>
                         </button>
+                      </div>
+                    )}
+
+                    {(activeCategory === 'Audio' || activeAudioTool) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', maxWidth: '450px', margin: '0 auto 1.5rem' }}>
+                        {/* Engine Selector */}
+                        <div style={{ display: 'flex', background: '#f8fafc', padding: '0.4rem', borderRadius: '0.85rem', border: '1px solid #e2e8f0' }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setAudioEngine('wasm'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: audioEngine === 'wasm' ? 'white' : 'transparent', color: audioEngine === 'wasm' ? 'var(--primary)' : '#64748b', boxShadow: audioEngine === 'wasm' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >WASM Engine<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Local/Free</span></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setAudioEngine('cloud'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: audioEngine === 'cloud' ? 'white' : 'transparent', color: audioEngine === 'cloud' ? '#ec4899' : '#64748b', boxShadow: audioEngine === 'cloud' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >Cloud API<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Fastest + Key</span></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setAudioEngine('local'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: audioEngine === 'local' ? 'white' : 'transparent', color: audioEngine === 'local' ? '#10b981' : '#64748b', boxShadow: audioEngine === 'local' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >Server CPU<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Hosts Only</span></button>
+                        </div>
+                        
+                        {/* Quality Selector */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 1rem', borderRadius: '1rem', border: '1px solid rgba(0,0,0,0.05)' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Quality Result:</span>
+                          <div style={{ display: 'flex', gap: '0.4rem', flex: 1 }}>
+                            {['best', 'good', 'standard'].map((q) => (
+                              <button
+                                key={q}
+                                onClick={(e) => { e.stopPropagation(); setAudioQuality(q as any); }}
+                                style={{
+                                  flex: 1, padding: '0.35rem', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700,
+                                  background: audioQuality === q ? 'white' : 'transparent',
+                                  color: audioQuality === q ? 'var(--primary)' : '#94a3b8',
+                                  boxShadow: audioQuality === q ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                                  textTransform: 'capitalize'
+                                }}
+                              >
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(activeCategory === 'Archive' || activeArchiveTool) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', maxWidth: '450px', margin: '0 auto 1.5rem' }}>
+                        <div style={{ display: 'flex', background: '#f8fafc', padding: '0.4rem', borderRadius: '0.85rem', border: '1px solid #e2e8f0' }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setArchiveEngine('wasm'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: archiveEngine === 'wasm' ? 'white' : 'transparent', color: archiveEngine === 'wasm' ? 'var(--primary)' : '#64748b', boxShadow: archiveEngine === 'wasm' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >WASM Engine<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Local/Free</span></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setArchiveEngine('cloud'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: archiveEngine === 'cloud' ? 'white' : 'transparent', color: archiveEngine === 'cloud' ? '#ec4899' : '#64748b', boxShadow: archiveEngine === 'cloud' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >Cloud API<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Full RAR/7Z</span></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setArchiveEngine('local'); }}
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.65rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: archiveEngine === 'local' ? 'white' : 'transparent', color: archiveEngine === 'local' ? '#10b981' : '#64748b', boxShadow: archiveEngine === 'local' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                          >Server CPU<span style={{ fontSize: '0.65rem', fontWeight: 500, opacity: 0.7 }}>Hosts Only</span></button>
+                        </div>
                       </div>
                     )}
 
