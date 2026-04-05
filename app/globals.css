@@ -177,12 +177,12 @@ body {
 }
 
 .header {
-    height: 64px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 1.5rem 0 2rem 0;
-    padding: 0 2rem !important;
+    margin: 0.75rem 0 1.25rem 0;
+    padding: 0 1.5rem !important;
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -273,7 +273,7 @@ body {
 }
 
 .hero-text {
-    margin-bottom: 4rem;
+    margin-bottom: 1.5rem;
 }
 
 .hero-title {
@@ -313,7 +313,7 @@ body {
     background: var(--bg-card);
     backdrop-filter: blur(20px);
     border-radius: var(--border-radius-xl);
-    padding: 2.5rem;
+    padding: 1.5rem;
     box-shadow: var(--shadow-lg);
     border: 1px solid var(--glass-border);
     max-width: 900px;
@@ -323,7 +323,7 @@ body {
 .drop-zone {
     border: 2px dashed rgba(139, 92, 246, 0.2);
     border-radius: 1.5rem;
-    padding: 4rem 2rem;
+    padding: 2.5rem 1.25rem;
     transition: all 0.3s ease;
     cursor: pointer;
     background: rgba(139, 92, 246, 0.02);
@@ -336,7 +336,7 @@ body {
 
 .upload-icon {
     color: var(--primary);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .drop-zone h3 {
@@ -360,7 +360,7 @@ body {
 }
 
 .recent-files {
-    margin-top: 3rem;
+    margin-top: 1.5rem;
     text-align: left;
 }
 

@@ -1826,7 +1826,7 @@ export default function Home() {
 
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
-        <div className="logo-area" style={{ marginBottom: '2.5rem' }} suppressHydrationWarning>
+        <div className="logo-area" style={{ marginBottom: '1.5rem' }} suppressHydrationWarning>
           <img src="/logo/C_D_logo-removebg-preview.png" alt="C&D Logo" className="logo-img" style={{ filter: 'drop-shadow(0 4px 10px rgba(99, 102, 241, 0.2))' }} />
           <h1 style={{ marginLeft: '12px' }}>C&D Flow</h1>
         </div>
@@ -1885,9 +1885,9 @@ export default function Home() {
         {/* Hero & Converter Zone */}
         <section className="hero-section">
           {searchQuery ? (
-            <div className="search-results-container" style={{ textAlign: 'left', maxWidth: '1100px', margin: '0 auto', paddingTop: '1rem' }} suppressHydrationWarning>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                 <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Search Results for &quot;{searchQuery}&quot;</h2>
+            <div className="search-results-container" style={{ textAlign: 'left', maxWidth: '1100px', margin: '0 auto', paddingTop: '0.25rem' }} suppressHydrationWarning>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                 <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Search Results for &quot;{searchQuery}&quot;</h2>
                  <button 
                   onClick={() => setSearchQuery("")}
                   style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
@@ -1949,31 +1949,31 @@ export default function Home() {
                )}
             </div>
           ) : activeCategory === "Download" ? (
-            <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }} suppressHydrationWarning>
+            <div className="download-container" style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', paddingTop: '0.5rem' }} suppressHydrationWarning>
               {/* Section Header */}
-              <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '1rem' }} suppressHydrationWarning>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} suppressHydrationWarning>
-                  <div style={{ width: '36px', height: '36px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }} suppressHydrationWarning>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <div className="hero-text" ref={heroTextRef} style={{ textAlign: 'left', marginBottom: '0.75rem' }} suppressHydrationWarning>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }} suppressHydrationWarning>
+                  <div style={{ width: '32px', height: '32px', background: 'var(--gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1rem', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }} suppressHydrationWarning>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                   </div>
                   <div suppressHydrationWarning>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Video Downloader</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Select platform, paste URL, and download in any quality</p>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Video Downloader</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Select platform, paste URL, and download in any quality</p>
                   </div>
                 </div>
               </div>
 
               {/* Platform + URL Input Card */}
-              <div className="downloader-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }} suppressHydrationWarning>
-                <h4 style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem' }}>1. Select Platform:</h4>
-                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }} suppressHydrationWarning>
+              <div className="downloader-card" style={{ background: 'white', padding: '1.25rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }} suppressHydrationWarning>
+                <h4 style={{ marginBottom: '0.75rem', fontWeight: 600, fontSize: '0.85rem' }}>1. Select Platform:</h4>
+                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1.25rem' }} suppressHydrationWarning>
                   {platforms.map(p => (
                     <div
                       key={p.name}
                       onClick={() => { setSelectedPlatform(p.name); setDlError(""); setDlResult(null); }}
                       style={{
-                        padding: '0.75rem',
-                        borderRadius: '0.75rem',
+                        padding: '0.5rem',
+                        borderRadius: '0.65rem',
                         border: '2px solid',
                         borderColor: selectedPlatform === p.name ? p.color : 'rgba(0,0,0,0.06)',
                         background: selectedPlatform === p.name ? p.color + '0d' : 'white',
@@ -2030,8 +2030,8 @@ export default function Home() {
                       flexGrow: 1,
                       border: 'none',
                       outline: 'none',
-                      padding: '0.75rem',
-                      fontSize: '0.9rem',
+                      padding: '0.65rem 0.75rem',
+                      fontSize: '0.85rem',
                       background: 'transparent'
                     }}
                   />
@@ -2042,10 +2042,10 @@ export default function Home() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.65rem 1.5rem',
+                      gap: '0.4rem',
+                      padding: '0.55rem 1.25rem',
                       whiteSpace: 'nowrap',
-                      fontSize: '0.9rem',
+                      fontSize: '0.85rem',
                       opacity: dlLoading ? 0.7 : 1,
                       cursor: dlLoading ? 'not-allowed' : 'pointer'
                     }}
@@ -2183,12 +2183,12 @@ export default function Home() {
             </div>
           ) : (activeCategory === 'Documents' && !activeDocumentTool) || (activeCategory === 'Images' && !activeImageTool) ? (
             <>
-              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
-                <h2 className="section-title">
+              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1rem', paddingTop: '0.5rem' }}>
+                <h2 className="section-title" style={{ fontSize: '1.75rem' }}>
                   <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{activeCategory}</span>{" "}
                   <span style={{ fontWeight: 700 }}>Studio</span>
                 </h2>
-                <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
+                <p className="hero-subtitle" style={{ fontSize: '0.9rem', opacity: 0.7 }}>
                   Every tool you need to work with {activeCategory.toLowerCase()} in one place
                 </p>
               </div>
@@ -2237,8 +2237,8 @@ export default function Home() {
                 </div>
               )}
               
-              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '1rem' }}>
-                <h2 className="section-title">
+              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1rem', paddingTop: '0.5rem' }}>
+                <h2 className="section-title" style={{ fontSize: '1.75rem' }}>
                   <span style={{ color: primaryBg, fontWeight: 800 }}>
                     {activeToolData?.title.split(' ')[0] || categories.find(c => c.name === activeCategory)?.titlePrefix}
                   </span>{" "}
@@ -2246,7 +2246,7 @@ export default function Home() {
                     {activeToolData?.title.split(' ').slice(1).join(' ') || (categories.find(c => c.name === activeCategory)?.titleSuffix || activeCategory)}
                   </span>
                 </h2>
-                <p className="hero-subtitle" style={{ fontSize: '1rem', opacity: 0.7 }}>
+                <p className="hero-subtitle" style={{ fontSize: '0.9rem', opacity: 0.7 }}>
                   {displayDesc}
                 </p>
               </div>
@@ -2268,24 +2268,24 @@ export default function Home() {
                 >
                   <div className="drop-zone-content">
                     <div className="upload-icon" style={{ 
-                      width: '80px', height: '80px', 
+                      width: '64px', height: '64px', 
                       background: primaryBg,
-                      borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', margin: '0 auto 1.5rem',
-                      boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.15)',
+                      borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', margin: '0 auto 1.25rem',
+                      boxShadow: '0 12px 24px -5px rgba(0, 0, 0, 0.15)',
                       transition: 'transform 0.3s ease'
                     }}>
                       {activeToolData ? (
-                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
                       ) : activeCategory === 'Images' ? (
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                       ) : activeCategory === 'Video' ? (
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-2 14.5v-9l6 4.5z"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-2 14.5v-9l6 4.5z"/></svg>
                       ) : (
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                       )}
                     </div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{displayTitle}</h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{displayDesc}</p>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.25rem' }}>{displayTitle}</h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem', fontSize: '0.8rem' }}>{displayDesc}</p>
                     
                     {activeCategory === 'Video' && (
                       <div style={{ display: 'flex', background: '#f8fafc', padding: '0.4rem', borderRadius: '0.85rem', marginBottom: '1.5rem', maxWidth: '450px', margin: '0 auto 1.5rem', border: '1px solid #e2e8f0' }}>
@@ -2347,7 +2347,7 @@ export default function Home() {
                     
                     <button className="btn-primary" style={{ 
                       background: primaryBg,
-                      padding: '1rem 2.5rem', fontSize: '1rem', fontWeight: 600, borderRadius: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 auto',
+                      padding: '0.85rem 2rem', fontSize: '0.95rem', fontWeight: 600, borderRadius: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 auto',
                       border: 'none', color: 'white'
                     }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
