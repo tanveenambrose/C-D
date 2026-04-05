@@ -2136,13 +2136,9 @@ export default function Home() {
                </div>
                
                {searchResults.length > 0 ? (
-                 <div className="pdf-tools-grid" style={{
-                   display: 'grid',
-                   gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                   gap: '1rem'
-                 }}>
+                 <div className="studio-grid">
                    {searchResults.map(item => (
-                     <div key={`${item.type}-${item.id}`} onClick={() => {
+                     <div key={`${item.type}-${item.id}`} className="tool-card" onClick={() => {
                         setActiveCategory(item.category);
                         if (item.type === 'tool') {
                           if (item.category === 'Documents') setActiveDocumentTool(item.id);
@@ -2156,34 +2152,20 @@ export default function Home() {
                           setActiveArchiveTool(null);
                         }
                         setSearchQuery("");
-                     }} style={{
-                       background: 'white',
-                       border: '1px solid rgba(0,0,0,0.05)',
-                       borderRadius: '1rem',
-                       padding: '1.25rem',
-                       cursor: 'pointer',
-                       boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                       transition: 'all 0.2s ease',
-                       display: 'flex',
-                       flexDirection: 'column',
-                       gap: '0.75rem'
-                     }}
-                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = 'var(--primary)40'; }}
-                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.05)'; }}
-                     >
-                       <div style={{ color: item.color, marginBottom: '0.25rem' }}>
-                         {item.icon}
-                       </div>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                         <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{item.title}</h4>
-                         <span style={{ fontSize: '0.65rem', background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '0.4rem', color: '#64748b', fontWeight: 700 }}>
-                           {item.category}
-                         </span>
-                       </div>
-                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.desc}</p>
-                     </div>
-                   ))}
-                 </div>
+                     }}>
+                        <div className="icon-wrap" style={{ background: item.color + '15', color: item.color }}>
+                          {item.icon}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{item.title}</h4>
+                          <span style={{ fontSize: '0.65rem', background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '0.4rem', color: '#64748b', fontWeight: 700 }}>
+                            {item.category}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
                ) : (
                  <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
@@ -2209,14 +2191,14 @@ export default function Home() {
               {/* Platform + URL Input Card */}
               <div className="downloader-card" style={{ background: 'white', padding: '1.25rem', borderRadius: '1.5rem', boxShadow: 'var(--shadow-md)' }} suppressHydrationWarning>
                 <h4 style={{ marginBottom: '0.75rem', fontWeight: 600, fontSize: '0.85rem' }}>1. Select Platform:</h4>
-                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1.25rem' }} suppressHydrationWarning>
+                <div className="platform-grid" style={{ marginBottom: '1.25rem' }} suppressHydrationWarning>
                   {platforms.map(p => (
                     <div
                       key={p.name}
                       onClick={() => { setSelectedPlatform(p.name); setDlError(""); setDlResult(null); }}
                       style={{
-                        padding: '0.5rem',
-                        borderRadius: '0.65rem',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '1rem',
                         border: '2px solid',
                         borderColor: selectedPlatform === p.name ? p.color : 'rgba(0,0,0,0.06)',
                         background: selectedPlatform === p.name ? p.color + '0d' : 'white',
@@ -2225,22 +2207,23 @@ export default function Home() {
                         justifyContent: 'space-between',
                         cursor: 'pointer',
                         transition: 'all 0.25s ease',
-                        boxShadow: selectedPlatform === p.name ? `0 4px 16px ${p.color}22` : 'none'
+                        boxShadow: selectedPlatform === p.name ? `0 8px 20px ${p.color}22` : 'var(--shadow-sm)'
                       }}
                       suppressHydrationWarning
+                      className="platform-item"
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} suppressHydrationWarning>
-                        <span style={{ fontSize: '1rem', display: 'flex' }} suppressHydrationWarning>
-                          {p.name === 'YouTube' && <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>}
-                          {p.name === 'Instagram' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>}
-                          {p.name === 'Facebook' && <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
-                          {p.name === 'TikTok' && <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.24-.11-.47-.24-.7-.37V15.51c0 2.97-1.54 5.51-4.66 6.31-2.99.77-6.24-.35-7.72-3.12-1.48-2.77-.54-6.49 2.22-8.02 1.18-.65 2.52-.9 3.83-.86V13.56c-.78-.05-1.58.02-2.3.36-1.04.48-1.74 1.56-1.74 2.7 0 1.48 1.1 2.87 2.6 2.97 1.5.1 3.03-1.03 3.03-2.55V.02z"/></svg>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }} suppressHydrationWarning>
+                        <span style={{ fontSize: '1.1rem', display: 'flex' }} suppressHydrationWarning>
+                          {p.name === 'YouTube' && <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>}
+                          {p.name === 'Instagram' && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>}
+                          {p.name === 'Facebook' && <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
+                          {p.name === 'TikTok' && <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.24-.11-.47-.24-.7-.37V15.51c0 2.97-1.54 5.51-4.66 6.31-2.99.77-6.24-.35-7.72-3.12-1.48-2.77-.54-6.49 2.22-8.02 1.18-.65 2.52-.9 3.83-.86V13.56c-.78-.05-1.58.02-2.3.36-1.04.48-1.74 1.56-1.74 2.7 0 1.48 1.1 2.87 2.6 2.97 1.5.1 3.03-1.03 3.03-2.55V.02z"/></svg>}
                         </span>
-                        <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{p.name}</span>
                       </div>
                       {selectedPlatform === p.name && (
-                        <div style={{ width: '18px', height: '18px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 800 }} suppressHydrationWarning>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <div style={{ width: '20px', height: '20px', background: p.color, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 800 }} suppressHydrationWarning>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                       )}
                     </div>
@@ -2426,9 +2409,9 @@ export default function Home() {
             </div>
           ) : (activeCategory === 'Documents' && !activeDocumentTool) || (activeCategory === 'Images' && !activeImageTool) || (activeCategory === 'Audio' && !activeAudioTool) || (activeCategory === 'Archive' && !activeArchiveTool) ? (
             <>
-              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1rem', paddingTop: '0.5rem' }}>
-                <h2 className="section-title" style={{ fontSize: '1.75rem' }}>
-                  <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{activeCategory}</span>{" "}
+              <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1.5rem', paddingTop: '0.5rem' }}>
+                <h2 className="section-title">
+                  <span className="text-gradient" style={{ fontWeight: 800 }}>{activeCategory}</span>{" "}
                   <span style={{ fontWeight: 700 }}>Studio</span>
                 </h2>
                 <p className="hero-subtitle" style={{ fontSize: '0.9rem', opacity: 0.7 }}>
@@ -2436,40 +2419,19 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="pdf-tools-grid" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                maxWidth: '1100px',
-                margin: '0 auto',
-                paddingBottom: '2rem'
-              }}>
+              <div className="studio-grid">
                 {(activeCategory === 'Documents' ? pdfTools : (activeCategory === 'Images' ? imageTools : (activeCategory === 'Audio' ? audioTools : archiveTools))).map(tool => (
-                  <div key={tool.id} onClick={() => {
+                  <div key={tool.id} className="tool-card" onClick={() => {
                     if (activeCategory === 'Documents') setActiveDocumentTool(tool.id);
                     else if (activeCategory === 'Images') setActiveImageTool(tool.id);
                     else if (activeCategory === 'Audio') setActiveAudioTool(tool.id);
                     else if (activeCategory === 'Archive') setActiveArchiveTool(tool.id);
-                  }} style={{
-                    background: 'white',
-                    border: '1px solid rgba(0,0,0,0.05)',
-                    borderRadius: '1rem',
-                    padding: '1.25rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem'
-                  }}
-                  onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = tool.color + '40'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.05)'; }}
-                  >
-                    <div style={{ color: tool.color, marginBottom: '0.25rem' }}>
+                  }}>
+                    <div className="icon-wrap" style={{ background: tool.color + '15', color: tool.color }}>
                       {tool.icon}
                     </div>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{tool.title}</h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{tool.desc}</p>
+                    <h4>{tool.title}</h4>
+                    <p>{tool.desc}</p>
                   </div>
                 ))}
               </div>
@@ -2487,7 +2449,7 @@ export default function Home() {
               
               <div className="hero-text" ref={heroTextRef} style={{ marginBottom: '1rem', paddingTop: '0.5rem' }}>
                 <h2 className="section-title" style={{ fontSize: '1.75rem' }}>
-                  <span style={{ color: primaryBg, fontWeight: 800 }}>
+                  <span className="text-gradient" style={{ fontWeight: 800 }}>
                     {activeToolData?.title.split(' ')[0] || categories.find(c => c.name === activeCategory)?.titlePrefix}
                   </span>{" "}
                   <span style={{ fontWeight: 700 }}>
@@ -2709,7 +2671,7 @@ export default function Home() {
                                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Analyzing PDF pages...</p>
                               </div>
                             ) : (
-                              <div className="pages-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                              <div className="thumbnail-grid">
                                 {organizedPages[file.id]?.map((page, pIdx) => (
                                   <div key={page.id} style={{ position: 'relative', background: 'white', borderRadius: '1rem', padding: '0.5rem', border: '1px solid rgba(0,0,0,0.08)', opacity: page.deleted ? 0.4 : 1, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                                     <div style={{ aspectRatio: '1/1.4', background: '#f1f5f9', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '0.5rem', border: '1px solid rgba(0,0,0,0.05)' }}>
@@ -2743,179 +2705,168 @@ export default function Home() {
                         ))}
                       </div>
                     ) : (
-                      files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).length === 0 ? (
-                        <div className="file-item-empty" style={{ padding: '1rem', fontSize: '0.85rem' }}>No files uploaded yet</div>
-                      ) : (
-                        files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).map((file, index) => (
-                            <div
-                              key={index}
-                              className="file-item"
-                              style={{
-                                display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "white", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1rem", marginBottom: "0.5rem", boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                              }}
-                              suppressHydrationWarning
-                            >
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }} suppressHydrationWarning>
-                              {activeCategory === 'Video' && file.file ? (
-                                <video src={URL.createObjectURL(file.file)} style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover", background: "#000" }} muted loop preload="metadata" />
-                              ) : (
-                                <div style={{ width: "36px", height: "36px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1rem' }}>
-                                  {categories.find(c => c.name === activeCategory)?.icon || "📄"}
-                                </div>
-                              )}
-                              <div style={{ maxWidth: '120px' }}>
-                                <div style={{ fontWeight: 600, fontSize: "0.85rem", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{file.size} KB</div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'Convert to:'}</span>
-                              <select 
-                                id={`format-select-${index}`}
-                                name={`format-select-${index}`}
-                                value={file.targetFormat || displayFormats[0] || 'PDF'}
-                                onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
-                                disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
-                                style={{ padding: '0.3rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.8rem', background: '#f9f9f9', opacity: (file.removeBg || displayFormats.length <= 1) ? 0.7 : 1, cursor: displayFormats.length <= 1 ? 'not-allowed' : 'pointer' }}
-                              >
-                                {displayFormats.map(fmt => (
-                                  <option key={fmt} value={fmt}>{fmt}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {activeCategory === 'Images' && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
-                                  <input 
-                                    id={`remove-bg-opt-${index}`}
-                                    name={`remove-bg-opt-${index}`}
-                                    type="checkbox" 
-                                    checked={!!file.removeBg} 
-                                    onChange={() => toggleRemoveBg(files.indexOf(file))}
-                                    disabled={file.status !== 'idle'}
-                                  />
-                                  AI Remove BG
-                                </label>
-                              </div>
-                            )}
-
-                            <div className="progress-container" style={{ flexGrow: 1, margin: "0 1.5rem", background: "#F1F5F9", height: "4px", borderRadius: "2px", position: "relative", overflow: "hidden" }}>
-                              <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: primaryBg, transition: "width 0.3s" }}></div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} suppressHydrationWarning>
-                              {activeDocumentTool !== 'merge' && (
-                                <button
-                                  className={`btn-primary ${file.status === "download" ? "gradient-btn" : ""}`}
-                                  style={{ padding: "0.4rem 1.2rem", fontSize: "0.8rem", borderRadius: '0.6rem', background: file.status === 'download' ? primaryBg : '#E2E8F0', color: file.status === 'download' ? 'white' : '#64748B', border: 'none' }}
-                                  onClick={() => {
-                                    if (file.status === "idle") {
-                                      handleConversion(files.indexOf(file));
-                                    } else if (file.status === "download") {
-                                      const link = document.createElement('a');
-                                      link.href = file.resultUrl || "#";
-                                      link.setAttribute('download', file.name.replace(/\.docx?$/i, '.pdf'));
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                    }
-                                  }}
-                                >
-                                  {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Download"}
-                                </button>
-                              )}
-                              {file.status === 'download' && file.resultUrl && (
-                                <button
-                                  onClick={() => setDocPreview({
-                                    isOpen: true,
-                                    fileName: file.name.replace(/\.docx?$/i, '.pdf'),
-                                    contentTitle: "Conversion Result",
-                                    contentBody: "Your document has been converted successfully.",
-                                    downloadUrl: file.resultUrl,
-                                    isPdf: true
-                                  })}
-                                  style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.6rem', fontSize: '0.8rem', fontWeight: 600 }}
-                                >
-                                  Preview
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteFile(files.indexOf(file))}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
-                                title="Remove file"
-                              >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                              </button>
-
-                              {activeDocumentTool === 'merge' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '0.5rem' }}>
-                                  <button 
-                                    onClick={() => handleMoveFile(files.indexOf(file), 'up')}
-                                    disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0}
-                                    style={{ 
-                                      background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
-                                      cursor: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 'not-allowed' : 'pointer', 
-                                      opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 0.3 : 1 
-                                    }}
-                                    title="Move Up"
-                                  >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                                  </button>
-                                  <button 
-                                    onClick={() => handleMoveFile(files.indexOf(file), 'down')}
-                                    disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1}
-                                    style={{ 
-                                      background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px', 
-                                      cursor: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 'not-allowed' : 'pointer', 
-                                      opacity: (files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1) ? 0.3 : 1 
-                                    }}
-                                    title="Move Down"
-                                  >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                      <div className="file-list-container">
+                        {files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).length === 0 ? (
+                          <div className="file-item-empty" style={{ padding: '2rem', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: '1rem', border: '1px dashed rgba(0,0,0,0.1)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            No files uploaded yet. Drag and drop or click to upload.
                           </div>
-                        ))
-                      )
+                        ) : (
+                          files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool) && (activeCategory !== 'Images' || f.imageTool === activeImageTool)).map((file, index) => (
+                            <div key={index} className="file-item" suppressHydrationWarning>
+                              <div className="file-info" suppressHydrationWarning>
+                                {activeCategory === 'Video' && file.file ? (
+                                  <video src={URL.createObjectURL(file.file)} style={{ width: "40px", height: "40px", borderRadius: "10px", objectFit: "cover", background: "#000" }} muted loop preload="metadata" />
+                                ) : (
+                                  <div style={{ width: "40px", height: "40px", background: (categories.find(c => c.name === activeCategory)?.gradient || 'var(--gradient)') + '15', borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", color: categories.find(c => c.name === activeCategory)?.gradient?.split(' ')[1] || 'var(--primary)', fontSize: '1.2rem' }}>
+                                    {categories.find(c => c.name === activeCategory)?.icon || "📄"}
+                                  </div>
+                                )}
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ fontWeight: 700, fontSize: "0.9rem", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>{file.name}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 500 }}>{file.size} KB</div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{displayFormats.length === 1 && displayFormats[0] === 'PDF' && ['merge', 'split', 'compress', 'watermark', 'protect', 'edit'].includes(activeDocumentTool || '') ? 'Output:' : 'To:'}</span>
+                                  <select 
+                                    id={`format-select-${index}`}
+                                    name={`format-select-${index}`}
+                                    value={file.targetFormat || displayFormats[0] || 'PDF'}
+                                    onChange={(e) => handleFormatChange(files.indexOf(file), e.target.value)}
+                                    disabled={file.status !== 'idle' || file.removeBg || displayFormats.length <= 1}
+                                    style={{ padding: '0.4rem 0.75rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)', fontSize: '0.85rem', background: '#f8fafc', fontWeight: 600, cursor: 'pointer' }}
+                                  >
+                                    {displayFormats.map(fmt => (
+                                      <option key={fmt} value={fmt}>{fmt}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {activeCategory === 'Images' && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={!!file.removeBg} 
+                                        onChange={() => toggleRemoveBg(files.indexOf(file))}
+                                        disabled={file.status !== 'idle'}
+                                        style={{ accentColor: 'var(--primary)' }}
+                                      />
+                                      AI Remove BG
+                                    </label>
+                                  </div>
+                                )}
+
+                                <div className="progress-container" style={{ width: "100px", background: "#f1f5f9", height: "6px", borderRadius: "3px", position: "relative", overflow: "hidden" }}>
+                                  <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: file.progress + "%", background: 'var(--primary)', transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}></div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {activeDocumentTool !== 'merge' && (
+                                    <button
+                                      className={`btn-action ${file.status === "download" ? "download" : ""}`}
+                                      style={{ padding: "0.5rem 1.25rem", fontSize: "0.85rem", borderRadius: '0.75rem', fontWeight: 700, transition: 'all 0.2s', background: file.status === 'download' ? 'var(--primary)' : (file.status === 'converting' ? '#f1f5f9' : '#eef2ff'), color: file.status === 'download' ? 'white' : 'var(--primary)', border: 'none', cursor: file.status === 'converting' ? 'wait' : 'pointer' }}
+                                      onClick={() => {
+                                        if (file.status === "idle") handleConversion(files.indexOf(file));
+                                        else if (file.status === "download") {
+                                          const link = document.createElement('a');
+                                          link.href = file.resultUrl || "#";
+                                          link.setAttribute('download', file.name.replace(/\.[^/.]+$/, "") + (file.targetFormat ? `.${file.targetFormat.toLowerCase()}` : ".pdf"));
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }
+                                      }}
+                                    >
+                                      {file.status === "idle" ? (file.removeBg || activeDocumentTool ? "Process" : "Convert") : file.status === "converting" ? "..." : "Download"}
+                                    </button>
+                                  )}
+                                  {file.status === 'download' && file.resultUrl && (
+                                    <button
+                                      onClick={() => setDocPreview({
+                                        isOpen: true,
+                                        fileName: file.name.replace(/\.[^/.]+$/, "") + (file.targetFormat ? `.${file.targetFormat.toLowerCase()}` : ".pdf"),
+                                        contentTitle: "Preview Results",
+                                        contentBody: "Review your generated file below.",
+                                        downloadUrl: file.resultUrl,
+                                        isPdf: (file.targetFormat || 'PDF').toUpperCase() === 'PDF'
+                                      })}
+                                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'pointer', color: 'var(--text-main)', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                      Preview
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteFile(files.indexOf(file))}
+                                    style={{ background: '#fff1f2', border: 'none', cursor: 'pointer', color: '#e11d48', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', transition: 'all 0.2s' }}
+                                    title="Remove file"
+                                  >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                  </button>
+
+                                  {activeDocumentTool === 'merge' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <button 
+                                        onClick={() => handleMoveFile(files.indexOf(file), 'up')}
+                                        disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0}
+                                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '3px', cursor: 'pointer', opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === 0 ? 0.3 : 1 }}
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                      </button>
+                                      <button 
+                                        onClick={() => handleMoveFile(files.indexOf(file), 'down')}
+                                        disabled={files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1}
+                                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '3px', cursor: 'pointer', opacity: files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).indexOf(file) === files.filter(f => f.type === activeCategory && (activeCategory !== 'Documents' || f.documentTool === activeDocumentTool)).length - 1 ? 0.3 : 1 }}
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     )}
                   </div>
+
                   {activeDocumentTool === 'merge' && (
-                    <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                       <button 
-                         className="btn-primary"
+                         className="btn-primary gradient-btn"
                          style={{ 
-                            background: files.filter(f => f.type === activeCategory).length > 1 ? primaryBg : '#CBD5E1', 
-                            padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, 
+                            padding: '1.25rem 4rem', fontSize: '1.1rem', borderRadius: '1.25rem', border: 'none', color: 'white', fontWeight: 800, 
                             cursor: files.filter(f => f.type === activeCategory).length > 1 ? 'pointer' : 'not-allowed', 
-                            boxShadow: files.filter(f => f.type === activeCategory).length > 1 ? '0 10px 25px -5px rgba(0,0,0,0.2)' : 'none',
-                            opacity: files.filter(f => f.type === activeCategory).length > 1 ? 1 : 0.7
+                            boxShadow: '0 15px 30px -10px rgba(99, 102, 241, 0.4)',
+                            opacity: files.filter(f => f.type === activeCategory).length > 1 ? 1 : 0.6
                          }}
                          onClick={handleMergePdfs}
                          disabled={files.filter(f => f.type === activeCategory).length <= 1}
                       >
                          {files.filter(f => f.type === activeCategory).length <= 1 
-                           ? "Add more PDFs to merge" 
-                           : `Merge ${files.filter(f => f.type === activeCategory).length} PDFs Now`}
+                           ? "Upload more PDFs to merge" 
+                           : `Combine ${files.filter(f => f.type === activeCategory).length} Documents Now`}
                       </button>
                     </div>
                   )}
+
                   {activeDocumentTool === 'compress' && files.filter(f => f.type === activeCategory).length > 1 && (
-                    <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                       <button 
                          className="btn-primary"
                          style={{ 
-                            background: primaryBg, 
-                            padding: '1rem 3rem', fontSize: '1.1rem', borderRadius: '1rem', border: 'none', color: 'white', fontWeight: 800, 
+                            background: 'var(--primary)', 
+                            padding: '1.25rem 4rem', fontSize: '1.1rem', borderRadius: '1.25rem', border: 'none', color: 'white', fontWeight: 800, 
                             cursor: 'pointer', 
-                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)'
+                            boxShadow: '0 15px 30px -10px rgba(0, 0, 0, 0.1)'
                          }}
                          onClick={handleCompressAllPdfs}
                       >
-                         Compress & Zip {files.filter(f => f.type === activeCategory).length} PDFs
+                         Optimize & Package All PDFs
                       </button>
                     </div>
                   )}
